@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart CCTV</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: '#0f172a',
+                        glass: 'rgba(255, 255, 255, 0.05)',
+                        neonBlue: '#00f3ff',
+                        neonGreen: '#39ff14',
+                        neonRed: '#ff003c'
+                    },
+                    animation: {
+                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'shake': 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both infinite',
+                        'siren-flash': 'sirenFlash 0.5s infinite alternate',
+                    },
+                    keyframes: {
+                        shake: {
+                            '10%, 90%': { transform: 'translate3d(-1px, 0, 0)' },
+                            '20%, 80%': { transform: 'translate3d(2px, 0, 0)' },
+                            '30%, 50%, 70%': { transform: 'translate3d(-4px, 0, 0)' },
+                            '40%, 60%': { transform: 'translate3d(4px, 0, 0)' }
+                        },
+                        sirenFlash: {
+                            '0%': { backgroundColor: 'rgba(255, 0, 60, 0.1)', boxShadow: 'inset 0 0 50px rgba(255,0,60,0.5)' },
+                            '100%': { backgroundColor: 'rgba(255, 0, 60, 0.4)', boxShadow: 'inset 0 0 150px rgba(255,0,60,0.8)' }
+                        },
+                        blob: {
+                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                            '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                            '100%': { transform: 'translate(0px, 0px) scale(1)' }
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #020617; color: white; overflow-x: hidden; }
+        
+        /* Animated Background Elements & View Transitions */
+        .bg-blob { position: absolute; filter: blur(90px); z-index: -1; opacity: 0.35; transition: all 1s ease; }
+        .animate-blob { animation: blob 15s infinite alternate; }
+        .animation-delay-2000 { animation-delay: 2s; }
+        .animation-delay-4000 { animation-delay: 4s; }
+        .fade-in-view { animation: fadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+        
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+        .btn-glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+        .btn-glass:active { transform: scale(0.95); }
+        .btn-active-blue {
+            background: rgba(0, 243, 255, 0.2);
+            border-color: #00f3ff;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+            color: #00f3ff;
+        }
+        .btn-active-red {
+            background: rgba(255, 0, 60, 0.2);
+            border-color: #ff003c;
+            box-shadow: 0 0 15px rgba(255, 0, 60, 0.4);
+            color: #ff003c;
+        }
+        .video-container { position: relative; border-radius: 1rem; overflow: hidden; background: #000; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        .night-vision { filter: brightness(1.5) contrast(1.2) sepia(0.3) hue-rotate(130deg) saturate(1.5); }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        
+        #toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 50; display: flex; flex-direction: column; gap: 0.5rem; }
+        .toast { padding: 1rem; border-radius: 0.5rem; animation: slideIn 0.3s ease forwards; opacity: 0; transform: translateX(100%); }
+        @keyframes slideIn { to { opacity: 1; transform: translateX(0); } }
+    </style>
+</head>
+<body class="min-h-screen text-white antialiased transition-colors duration-500 relative" id="app-body">
+
+    <!-- Animated Ambient Background -->
+    <div class="fixed inset-0 w-full h-full overflow-hidden pointer-events-none z-[-1]">
+        <div class="bg-blob bg-blue-600 w-96 h-96 rounded-full top-[-10%] left-[-10%] animate-blob mix-blend-screen"></div>
+        <div class="bg-blob bg-cyan-500 w-96 h-96 rounded-full top-[20%] right-[-10%] animate-blob animation-delay-2000 mix-blend-screen"></div>
+        <div class="bg-blob bg-purple-900 w-[30rem] h-[30rem] rounded-full bottom-[-20%] left-[20%] animate-blob animation-delay-4000 mix-blend-screen"></div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container"></div>
+
+    <!-- AUTH VIEW -->
+    <div id="auth-view" class="fade-in-view min-h-screen flex items-center justify-center p-4 z-10 relative">
+        <div class="glass-panel p-8 rounded-2xl w-full max-w-md text-center">
+            <div class="w-16 h-16 mx-auto bg-blue-500/20 rounded-full flex items-center justify-center mb-4 border border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.5)]">
+                <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+            </div>
+            <h1 class="text-2xl font-bold mb-2 tracking-wider">CCTV SECURE</h1>
+            <p class="text-sm text-gray-400 mb-6">Enter master password to access system</p>
+            
+            <input type="password" id="auth-password" class="w-full bg-black/30 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-neonBlue focus:ring-1 focus:ring-neonBlue mb-4 text-center tracking-[0.2em]" placeholder="••••••••">
+            
+            <button onclick="handleLogin()" class="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold py-3 px-4 rounded-lg transition-all shadow-[0_0_15px_rgba(8,145,178,0.4)] hover:shadow-[0_0_25px_rgba(8,145,178,0.6)]">
+                AUTHENTICATE
+            </button>
+            <p id="auth-error" class="text-red-400 text-sm mt-3 hidden"></p>
+        </div>
+    </div>
+
+    <!-- ROLE SELECTION VIEW -->
+    <div id="role-view" class="min-h-screen flex items-center justify-center p-4 hidden">
+        <div class="glass-panel p-8 rounded-2xl w-full max-w-md text-center">
+            <h2 class="text-xl font-bold mb-6">Select Device Role</h2>
+            <div class="grid grid-cols-1 gap-4">
+                <button onclick="initCameraMode()" class="btn-glass p-6 rounded-xl flex flex-col items-center gap-3 hover:bg-white/10 group">
+                    <svg class="w-12 h-12 text-gray-300 group-hover:text-neonBlue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    <div>
+                        <h3 class="font-bold text-lg">Camera Unit</h3>
+                        <p class="text-xs text-gray-400">Set up this device as the CCTV camera</p>
+                    </div>
+                </button>
+                <button onclick="initViewerMode()" class="btn-glass p-6 rounded-xl flex flex-col items-center gap-3 hover:bg-white/10 group">
+                    <svg class="w-12 h-12 text-gray-300 group-hover:text-neonGreen transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    <div>
+                        <h3 class="font-bold text-lg">Viewer Monitor</h3>
+                        <p class="text-xs text-gray-400">View and control the remote camera</p>
+                    </div>
+                </button>
+            </div>
+            <button onclick="logout()" class="mt-6 text-sm text-gray-400 hover:text-white underline">Logout</button>
+        </div>
+    </div>
+
+    <!-- CAMERA UNIT VIEW -->
+    <div id="camera-view" class="min-h-screen flex flex-col hidden bg-black">
+        <div class="p-4 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent absolute top-0 w-full z-20">
+            <div class="flex items-center gap-2">
+                <div id="cam-status-dot" class="w-3 h-3 bg-red-500 rounded-full animate-pulse-fast"></div>
+                <span class="text-sm font-bold tracking-widest text-gray-200" id="cam-status-text">STANDBY</span>
+            </div>
+            <div class="flex gap-3 text-sm text-gray-300 items-center">
+                <span id="cam-battery">🔋 --%</span>
+                <button onclick="stopCamera()" class="bg-red-500/20 text-red-400 px-3 py-1 rounded border border-red-500/50">STOP</button>
+            </div>
+        </div>
+        
+        <div class="flex-1 relative video-container rounded-none">
+            <video id="local-video" autoplay playsinline muted></video>
+            
+            <!-- Overlays -->
+            <div id="cam-motion-warning" class="absolute top-16 left-1/2 transform -translate-x-1/2 bg-red-600/80 text-white px-4 py-1 rounded-full text-xs font-bold tracking-widest hidden animate-pulse">MOTION DETECTED</div>
+            <div id="cam-night-indicator" class="absolute bottom-4 left-4 bg-blue-600/80 text-white px-3 py-1 rounded text-xs hidden font-mono">NIGHT VISION AUTO</div>
+            
+            <!-- Hidden canvas for motion detection -->
+            <canvas id="motion-canvas" class="hidden"></canvas>
+            <canvas id="prev-motion-canvas" class="hidden"></canvas>
+        </div>
+    </div>
+
+    <!-- VIEWER MONITOR VIEW -->
+    <div id="viewer-view" class="min-h-screen flex flex-col hidden p-2 md:p-6 gap-4">
+        <!-- Header -->
+        <header class="glass-panel rounded-2xl p-4 flex justify-between items-center">
+            <div>
+                <h1 class="font-bold text-xl text-white tracking-wide">DASHBOARD</h1>
+                <div class="flex items-center gap-2 mt-1">
+                    <div id="view-status-dot" class="w-2 h-2 bg-red-500 rounded-full"></div>
+                    <span id="view-status-text" class="text-xs text-gray-400">Offline</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="text-right hidden sm:block">
+                    <div class="text-xs text-gray-400">Cam Battery</div>
+                    <div id="view-battery" class="font-mono text-sm text-green-400">--%</div>
+                </div>
+                <button onclick="logout()" class="btn-glass px-4 py-2 rounded-lg text-sm text-gray-300 hover:text-white">Exit</button>
+            </div>
+        </header>
+
+        <!-- Main Video Area -->
+        <main class="flex-1 flex flex-col md:flex-row gap-4 min-h-[50vh]">
+            <div class="flex-1 glass-panel rounded-2xl p-2 relative flex flex-col">
+                <div class="absolute top-4 left-4 z-10 flex gap-2">
+                    <span class="bg-black/60 backdrop-blur px-2 py-1 rounded text-xs font-mono text-white/80" id="timestamp">LIVE</span>
+                    <span id="view-motion-alert" class="bg-red-500/80 px-2 py-1 rounded text-xs font-bold hidden animate-pulse">MOTION!</span>
+                </div>
+                
+                <div class="flex-1 video-container bg-gray-900 rounded-xl relative group">
+                    <video id="remote-video" autoplay playsinline class="transition-all duration-700"></video>
+                    
+                    <!-- Connection Loading Overlay -->
+                    <div id="video-loader" class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-20">
+                        <svg class="animate-spin h-10 w-10 text-neonBlue mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p class="text-sm text-blue-300 tracking-widest animate-pulse" id="connection-status">CONNECTING TO CAMERA...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls Panel -->
+            <aside class="w-full md:w-80 glass-panel rounded-2xl p-4 flex flex-col gap-4">
+                <h3 class="text-xs font-bold text-gray-400 tracking-widest uppercase mb-2">Tactical Controls</h3>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <!-- Siren -->
+                    <button id="btn-siren" onclick="toggleCommand('siren')" class="btn-glass p-4 rounded-xl flex flex-col items-center gap-2">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                        <span class="text-xs font-bold">SIREN ALARM</span>
+                    </button>
+                    
+                    <!-- Flashlight -->
+                    <button id="btn-torch" onclick="toggleCommand('torch')" class="btn-glass p-4 rounded-xl flex flex-col items-center gap-2">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                        <span class="text-xs font-bold">FLASHLIGHT</span>
+                    </button>
+                    
+                    <!-- Night Mode -->
+                    <button id="btn-night" onclick="toggleCommand('night')" class="btn-glass p-4 rounded-xl flex flex-col items-center gap-2">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                        <span class="text-xs font-bold">NIGHT VISION</span>
+                    </button>
+                    
+                    <!-- Switch Cam -->
+                    <button id="btn-switch" onclick="toggleCommand('cam')" class="btn-glass p-4 rounded-xl flex flex-col items-center gap-2">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <span class="text-xs font-bold">SWITCH CAM</span>
+                    </button>
+                </div>
+                
+                <div class="mt-auto flex flex-col gap-2">
+                    <button onclick="takeSnapshot()" class="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 border border-white/20">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        SNAPSHOT
+                    </button>
+                    <button id="btn-webrtc-connect" onclick="startViewerConnection()" class="w-full bg-blue-600/50 hover:bg-blue-600/80 text-white font-bold py-3 rounded-xl transition-all border border-blue-500/50">
+                        RECONNECT STREAM
+                    </button>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIGURATION
+        // ==========================================
+        // IMPORTANT: Replace this URL with your deployed Google Apps Script Web App URL
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-MJuw_Mv9ClNNKmDHmvm66xGbzmiTDOjkNLf-u0YaQc08zir94elz2deDZ0PZthKrPg/exec"; 
+        
+        // System Constants
+        const DEVICE_ID = "cctv_sys_1"; // Hardcoded for single setup, could be dynamic
+        const ICE_SERVERS = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+        
+        // State Variables
+        let currentRole = null;
+        let authHash = null;
+        let localStream = null;
+        let peerConnection = null;
+        let signalingInterval = null;
+        let statusInterval = null;
+        let facingMode = 'environment';
+        
+        // Audio Context for Siren
+        let audioCtx = null;
+        let sirenOscillator = null;
+        let sirenInterval = null;
+
+        // Command State
+        let commands = { siren: false, torch: false, night: false, cam: 'environment' };
+        
+        // DOM Elements
+        const views = ['auth-view', 'role-view', 'camera-view', 'viewer-view'];
+
+        // ==========================================
+        // UTILITIES & UI
+        // ==========================================
+        function switchView(viewId) {
+            views.forEach(v => {
+                const el = document.getElementById(v);
+                el.classList.add('hidden');
+                el.classList.remove('fade-in-view');
+            });
+            const targetEl = document.getElementById(viewId);
+            targetEl.classList.remove('hidden');
+            // Trigger reflow to restart animation
+            void targetEl.offsetWidth; 
+            targetEl.classList.add('fade-in-view');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const colors = {
+                info: 'bg-blue-900/80 border-blue-500 text-blue-100',
+                success: 'bg-green-900/80 border-green-500 text-green-100',
+                error: 'bg-red-900/80 border-red-500 text-red-100',
+                warning: 'bg-yellow-900/80 border-yellow-500 text-yellow-100'
+            };
+            toast.className = `toast border backdrop-blur-md shadow-lg ${colors[type]}`;
+            toast.innerHTML = `<span class="font-semibold text-sm">${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Live timestamp
+        setInterval(() => {
+            const ts = document.getElementById('timestamp');
+            if(ts) ts.innerText = new Date().toLocaleTimeString();
+        }, 1000);
+
+        // ==========================================
+        // BACKEND API (GOOGLE SHEETS)
+        // ==========================================
+        async function apiCall(action, payload = {}) {
+            if (APPS_SCRIPT_URL === "YOUR_WEB_APP_URL") {
+                showToast("Apps Script URL not configured! Running in Mock Mode.", "warning");
+                return mockApiCall(action, payload);
+            }
+
+            try {
+                // To avoid CORS preflight issues with Google Apps script, we use POST with text/plain 
+                // and parse JSON manually on backend, or we use simple URL params.
+                // For complex data, POST is necessary.
+                const url = `${APPS_SCRIPT_URL}?action=${action}&id=${DEVICE_ID}`;
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error || "API Error");
+                return result.data;
+            } catch (err) {
+                console.error("API Error:", err);
+                return null;
+            }
+        }
+
+        // Fallback for demonstration if URL is not provided
+        let mockDb = { state: { commands: {}, status: {}, ice_viewer: [], ice_camera: [] } };
+        async function mockApiCall(action, payload) {
+            return new Promise(resolve => {
+                setTimeout(() => {
+                    if (action === 'auth') resolve({ valid: payload.pwd === '1234' });
+                    if (action === 'set_state') { mockDb.state = { ...mockDb.state, ...payload }; resolve(mockDb.state); }
+                    if (action === 'get_state') resolve(mockDb.state);
+                }, 200); // simulate network latency
+            });
+        }
+
+        // ==========================================
+        // AUTHENTICATION
+        // ==========================================
+        async function handleLogin() {
+            const pwd = document.getElementById('auth-password').value;
+            if (!pwd) return;
+
+            // Simple client-side rate limiting
+            const attempts = parseInt(localStorage.getItem('auth_attempts') || '0');
+            const lockout = localStorage.getItem('auth_lockout');
+            
+            if (lockout && Date.now() < parseInt(lockout)) {
+                showToast("Too many attempts. Try again later.", "error");
+                return;
+            }
+
+            try {
+                const btn = document.querySelector('#auth-view button');
+                btn.innerHTML = `<svg class="animate-spin h-5 w-5 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+                
+                // Simulate backend auth call
+                let isValid = false;
+                if (APPS_SCRIPT_URL !== "YOUR_WEB_APP_URL") {
+                    const res = await apiCall('auth', { pwd });
+                    isValid = res && res.valid;
+                } else {
+                    isValid = (pwd === 'admin123' || pwd === '1234'); // Mock pass
+                }
+
+                if (isValid) {
+                    localStorage.setItem('auth_attempts', '0');
+                    localStorage.setItem('session', Date.now());
+                    switchView('role-view');
+                    showToast("Access Granted", "success");
+                } else {
+                    let newAttempts = attempts + 1;
+                    localStorage.setItem('auth_attempts', newAttempts);
+                    if (newAttempts >= 3) {
+                        localStorage.setItem('auth_lockout', Date.now() + 5 * 60 * 1000); // 5 mins
+                        showToast("System locked for 5 minutes.", "error");
+                    } else {
+                        showToast("Invalid Credentials", "error");
+                    }
+                    btn.innerText = "AUTHENTICATE";
+                }
+            } catch (e) {
+                showToast("Connection failed", "error");
+                document.querySelector('#auth-view button').innerText = "AUTHENTICATE";
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('session');
+            stopCamera();
+            if(peerConnection) peerConnection.close();
+            if(signalingInterval) clearInterval(signalingInterval);
+            if(statusInterval) clearInterval(statusInterval);
+            switchView('auth-view');
+            document.getElementById('auth-password').value = '';
+        }
+
+        // ==========================================
+        // CAMERA UNIT MODE
+        // ==========================================
+        async function initCameraMode() {
+            currentRole = 'camera';
+            switchView('camera-view');
+            document.getElementById('cam-status-text').innerText = 'INITIALIZING...';
+            
+            try {
+                await startVideo(facingMode);
+                setupCameraWebRTC();
+                startCameraStatusPolling();
+                setupHardwareMonitors();
+                showToast("Camera Active & Streaming", "success");
+            } catch (err) {
+                showToast("Camera access denied or failed.", "error");
+                document.getElementById('cam-status-text').innerText = 'ERROR';
+                console.error(err);
+            }
+        }
+
+        async function startVideo(mode) {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            const constraints = {
+                video: { facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } },
+                audio: true
+            };
+            localStream = await navigator.mediaDevices.getUserMedia(constraints);
+            const video = document.getElementById('local-video');
+            video.srcObject = localStream;
+            
+            // Re-apply torch if needed
+            if(commands.torch) setTorch(true);
+        }
+
+        function stopCamera() {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            if (sirenOscillator) toggleSirenMode(false);
+            apiCall('set_state', { status: { online: false } });
+        }
+
+        function setupHardwareMonitors() {
+            // Battery Monitor
+            if (navigator.getBattery) {
+                navigator.getBattery().then(battery => {
+                    const updateBattery = () => {
+                        const level = Math.round(battery.level * 100);
+                        document.getElementById('cam-battery').innerText = `🔋 ${level}%`;
+                        apiCall('set_state', { status: { battery: level } });
+                    };
+                    updateBattery();
+                    battery.addEventListener('levelchange', updateBattery);
+                });
+            }
+
+            // Motion & Night Level Detection Loop
+            setInterval(analyzeVideoFrame, 1000);
+        }
+
+        let lastImageData = null;
+        function analyzeVideoFrame() {
+            if (!localStream || currentRole !== 'camera') return;
+            const video = document.getElementById('local-video');
+            if (video.videoWidth === 0) return;
+
+            const canvas = document.getElementById('motion-canvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            
+            // Downscale heavily for performance
+            canvas.width = 64; 
+            canvas.height = 48;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const currentData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            // 1. Check Brightness for Auto Night Mode (if enabled)
+            if (commands.night === 'auto' || commands.night === true) {
+                let brightness = 0;
+                for (let i = 0; i < currentData.data.length; i += 4) {
+                    brightness += (currentData.data[i] + currentData.data[i+1] + currentData.data[i+2]) / 3;
+                }
+                brightness = brightness / (canvas.width * canvas.height);
+                
+                if (brightness < 40 && !video.classList.contains('night-vision')) {
+                    video.classList.add('night-vision');
+                    document.getElementById('cam-night-indicator').classList.remove('hidden');
+                } else if (brightness >= 40 && commands.night !== true && video.classList.contains('night-vision')) {
+                    video.classList.remove('night-vision');
+                    document.getElementById('cam-night-indicator').classList.add('hidden');
+                }
+            }
+
+            // 2. Motion Detection
+            if (lastImageData) {
+                let diffCount = 0;
+                for (let i = 0; i < currentData.data.length; i += 4) {
+                    const rDiff = Math.abs(currentData.data[i] - lastImageData.data[i]);
+                    const gDiff = Math.abs(currentData.data[i+1] - lastImageData.data[i+1]);
+                    const bDiff = Math.abs(currentData.data[i+2] - lastImageData.data[i+2]);
+                    if (rDiff + gDiff + bDiff > 60) diffCount++;
+                }
+                
+                const motionThreshold = (canvas.width * canvas.height) * 0.05; // 5% pixels changed
+                if (diffCount > motionThreshold) {
+                    triggerMotion();
+                }
+            }
+            lastImageData = currentData;
+        }
+
+        function triggerMotion() {
+            const warning = document.getElementById('cam-motion-warning');
+            warning.classList.remove('hidden');
+            apiCall('set_state', { status: { motion: true, last_motion: Date.now() } });
+            
+            clearTimeout(window.motionTimeout);
+            window.motionTimeout = setTimeout(() => {
+                warning.classList.add('hidden');
+                apiCall('set_state', { status: { motion: false } });
+            }, 3000);
+        }
+
+        function executeCommands(newCmds) {
+            if(!newCmds) return;
+            
+            // Torch
+            if (newCmds.torch !== commands.torch) {
+                setTorch(newCmds.torch);
+                commands.torch = newCmds.torch;
+            }
+            
+            // Siren
+            if (newCmds.siren !== commands.siren) {
+                toggleSirenMode(newCmds.siren);
+                commands.siren = newCmds.siren;
+            }
+            
+            // Night Mode Force
+            if (newCmds.night !== commands.night) {
+                const video = document.getElementById('local-video');
+                if(newCmds.night) {
+                    video.classList.add('night-vision');
+                    document.getElementById('cam-night-indicator').classList.remove('hidden');
+                } else {
+                    video.classList.remove('night-vision');
+                    document.getElementById('cam-night-indicator').classList.add('hidden');
+                }
+                commands.night = newCmds.night;
+            }
+
+            // Switch Cam
+            if (newCmds.cam !== commands.cam) {
+                startVideo(newCmds.cam);
+                commands.cam = newCmds.cam;
+            }
+        }
+
+        async function setTorch(on) {
+            if (!localStream) return;
+            const track = localStream.getVideoTracks()[0];
+            const imageCapture = new ImageCapture(track);
+            try {
+                const capabilities = await track.getCapabilities();
+                if (capabilities.torch) {
+                    await track.applyConstraints({ advanced: [{ torch: on }] });
+                }
+            } catch (e) {
+                console.warn("Torch not supported on this device/browser.");
+            }
+        }
+
+        function toggleSirenMode(on) {
+            const body = document.getElementById('app-body');
+            if (on) {
+                body.classList.add('animate-siren-flash', 'animate-shake');
+                playSirenSound();
+            } else {
+                body.classList.remove('animate-siren-flash', 'animate-shake');
+                stopSirenSound();
+            }
+        }
+
+        function playSirenSound() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            sirenOscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            sirenOscillator.type = 'square';
+            sirenOscillator.frequency.setValueAtTime(400, audioCtx.currentTime);
+            
+            // Frequency modulation for wail effect
+            let high = true;
+            sirenInterval = setInterval(() => {
+                if(!sirenOscillator) return;
+                sirenOscillator.frequency.setValueAtTime(high ? 800 : 400, audioCtx.currentTime);
+                high = !high;
+            }, 300);
+
+            gainNode.gain.value = 1.0; // Loud
+            sirenOscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            sirenOscillator.start();
+        }
+
+        function stopSirenSound() {
+            if (sirenOscillator) {
+                sirenOscillator.stop();
+                sirenOscillator.disconnect();
+                sirenOscillator = null;
+            }
+            if (sirenInterval) clearInterval(sirenInterval);
+        }
+
+        // ==========================================
+        // WEBRTC SIGNALING (CAMERA SIDE)
+        // ==========================================
+        function setupCameraWebRTC() {
+            peerConnection = new RTCPeerConnection(ICE_SERVERS);
+            
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+
+            peerConnection.onicecandidate = async (event) => {
+                if (event.candidate) {
+                    // Append candidate to backend
+                    const state = await apiCall('get_state') || {};
+                    const iceArr = state.ice_camera || [];
+                    iceArr.push(event.candidate);
+                    await apiCall('set_state', { ice_camera: iceArr });
+                }
+            };
+
+            peerConnection.onconnectionstatechange = () => {
+                const state = peerConnection.connectionState;
+                document.getElementById('cam-status-text').innerText = state === 'connected' ? 'LIVE STREAMING' : state.toUpperCase();
+                const dot = document.getElementById('cam-status-dot');
+                if(state === 'connected') {
+                    dot.classList.replace('bg-red-500', 'bg-green-500');
+                } else {
+                    dot.classList.replace('bg-green-500', 'bg-red-500');
+                }
+            };
+
+            // Clear previous session data in DB
+            apiCall('set_state', { offer: null, answer: null, ice_viewer: [], ice_camera: [], status: { online: true, battery: 100 } });
+        }
+
+        function startCameraStatusPolling() {
+            // Poll for viewer offer, ice candidates, and commands
+            let handledOffer = false;
+            let processedViewerIce = 0;
+
+            statusInterval = setInterval(async () => {
+                if (currentRole !== 'camera') return;
+                
+                const state = await apiCall('get_state');
+                if (!state) return;
+
+                // 1. Execute Commands
+                if (state.commands) executeCommands(state.commands);
+
+                // 2. Handle WebRTC Offer
+                if (state.offer && !handledOffer && peerConnection) {
+                    handledOffer = true;
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(state.offer));
+                    const answer = await peerConnection.createAnswer();
+                    await peerConnection.setLocalDescription(answer);
+                    await apiCall('set_state', { answer: answer });
+                }
+
+                // 3. Handle Viewer ICE Candidates
+                if (state.ice_viewer && state.ice_viewer.length > processedViewerIce && peerConnection && peerConnection.remoteDescription) {
+                    for (let i = processedViewerIce; i < state.ice_viewer.length; i++) {
+                        try {
+                            await peerConnection.addIceCandidate(new RTCIceCandidate(state.ice_viewer[i]));
+                        } catch(e) { console.warn("Error adding ICE", e); }
+                    }
+                    processedViewerIce = state.ice_viewer.length;
+                }
+
+                // Update online timestamp
+                apiCall('set_state', { status: { online: true, last_seen: Date.now() } });
+
+            }, 2000); // 2 second polling interval
+        }
+
+
+        // ==========================================
+        // VIEWER MONITOR MODE
+        // ==========================================
+        async function initViewerMode() {
+            currentRole = 'viewer';
+            switchView('viewer-view');
+            startViewerConnection();
+            startViewerStatusPolling();
+            showToast("Initializing Viewer Dashboard", "info");
+        }
+
+        async function startViewerConnection() {
+            const loader = document.getElementById('video-loader');
+            loader.classList.remove('hidden');
+            document.getElementById('connection-status').innerText = 'GENERATING P2P OFFER...';
+
+            if (peerConnection) peerConnection.close();
+            
+            peerConnection = new RTCPeerConnection(ICE_SERVERS);
+            
+            // To receive video, we need to add a transceiver
+            peerConnection.addTransceiver('video', { direction: 'recvonly' });
+            peerConnection.addTransceiver('audio', { direction: 'recvonly' });
+
+            peerConnection.ontrack = (event) => {
+                const remoteVideo = document.getElementById('remote-video');
+                if (remoteVideo.srcObject !== event.streams[0]) {
+                    remoteVideo.srcObject = event.streams[0];
+                    loader.classList.add('hidden');
+                    updateViewerStatus(true);
+                }
+            };
+
+            peerConnection.onicecandidate = async (event) => {
+                if (event.candidate) {
+                    const state = await apiCall('get_state') || {};
+                    const iceArr = state.ice_viewer || [];
+                    iceArr.push(event.candidate);
+                    await apiCall('set_state', { ice_viewer: iceArr });
+                }
+            };
+
+            peerConnection.onconnectionstatechange = () => {
+                if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
+                    loader.classList.remove('hidden');
+                    document.getElementById('connection-status').innerText = 'CONNECTION LOST. RETRYING...';
+                    updateViewerStatus(false);
+                }
+            };
+
+            // Create Offer
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            
+            // Clear old DB connection state, set new offer
+            document.getElementById('connection-status').innerText = 'SENDING SIGNAL TO CAMERA...';
+            await apiCall('set_state', { offer: offer, answer: null, ice_viewer: [], ice_camera: [] });
+            
+            // Start listening for answer
+            listenForAnswer();
+        }
+
+        let processedCameraIce = 0;
+        function listenForAnswer() {
+            let answerReceived = false;
+            
+            const checkAnswer = async () => {
+                if (currentRole !== 'viewer' || answerReceived) return;
+                
+                const state = await apiCall('get_state');
+                if (state && state.answer && peerConnection.signalingState !== 'stable') {
+                    answerReceived = true;
+                    document.getElementById('connection-status').innerText = 'ESTABLISHING P2P CONNECTION...';
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(state.answer));
+                }
+
+                // Add camera ICE
+                if (state && state.ice_camera && state.ice_camera.length > processedCameraIce && peerConnection.remoteDescription) {
+                    for (let i = processedCameraIce; i < state.ice_camera.length; i++) {
+                        try {
+                            await peerConnection.addIceCandidate(new RTCIceCandidate(state.ice_camera[i]));
+                        } catch(e) {}
+                    }
+                    processedCameraIce = state.ice_camera.length;
+                }
+
+                if (!answerReceived || (state.ice_camera && state.ice_camera.length > processedCameraIce)) {
+                    setTimeout(checkAnswer, 2000);
+                }
+            };
+            
+            setTimeout(checkAnswer, 2000);
+        }
+
+        function startViewerStatusPolling() {
+            statusInterval = setInterval(async () => {
+                if (currentRole !== 'viewer') return;
+                const state = await apiCall('get_state');
+                if (!state || !state.status) return;
+
+                // Check Online Status (if last seen > 10s ago, consider offline)
+                const isOnline = state.status.online && (Date.now() - (state.status.last_seen || 0) < 10000);
+                updateViewerStatus(isOnline);
+
+                // Update Battery
+                if (state.status.battery) {
+                    const bat = document.getElementById('view-battery');
+                    bat.innerText = `${state.status.battery}%`;
+                    bat.className = `font-mono text-sm ${state.status.battery < 20 ? 'text-red-500 animate-pulse' : 'text-green-400'}`;
+                }
+
+                // Update Motion Alert
+                const alertEl = document.getElementById('view-motion-alert');
+                if (state.status.motion) {
+                    alertEl.classList.remove('hidden');
+                    // Play a subtle beep
+                    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    if(audioCtx.state === 'running') {
+                        const osc = audioCtx.createOscillator();
+                        osc.connect(audioCtx.destination);
+                        osc.frequency.value = 800;
+                        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+                    }
+                } else {
+                    alertEl.classList.add('hidden');
+                }
+
+            }, 2000);
+        }
+
+        function updateViewerStatus(isOnline) {
+            const dot = document.getElementById('view-status-dot');
+            const text = document.getElementById('view-status-text');
+            if (isOnline) {
+                dot.classList.replace('bg-red-500', 'bg-green-500');
+                dot.classList.add('animate-pulse');
+                text.innerText = 'Connected';
+                text.classList.replace('text-gray-400', 'text-green-400');
+            } else {
+                dot.classList.replace('bg-green-500', 'bg-red-500');
+                dot.classList.remove('animate-pulse');
+                text.innerText = 'Camera Offline';
+                text.classList.replace('text-green-400', 'text-gray-400');
+            }
+        }
+
+        async function toggleCommand(type) {
+            if (currentRole !== 'viewer') return;
+            
+            const btn = document.getElementById(`btn-${type}`);
+            let newValue;
+
+            if (type === 'cam') {
+                newValue = commands.cam === 'environment' ? 'user' : 'environment';
+                commands.cam = newValue;
+                btn.classList.add('btn-active-blue');
+                setTimeout(() => btn.classList.remove('btn-active-blue'), 500);
+            } else {
+                newValue = !commands[type];
+                commands[type] = newValue;
+                
+                // UI Toggle
+                if (newValue) {
+                    btn.classList.add(type === 'siren' ? 'btn-active-red' : 'btn-active-blue');
+                    if(type === 'night') document.getElementById('remote-video').classList.add('night-vision');
+                } else {
+                    btn.classList.remove('btn-active-red', 'btn-active-blue');
+                    if(type === 'night') document.getElementById('remote-video').classList.remove('night-vision');
+                }
+            }
+
+            // Send to DB
+            const cmdPayload = { commands: { ...commands } };
+            await apiCall('set_state', cmdPayload);
+            showToast(`Command sent: ${type.toUpperCase()}`, "info");
+        }
+
+        function takeSnapshot() {
+            const video = document.getElementById('remote-video');
+            if (!video.videoWidth) {
+                showToast("No active stream to capture", "error");
+                return;
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            
+            // Apply night vision filter to canvas if active
+            if(commands.night) {
+                ctx.filter = 'brightness(1.5) contrast(1.2) sepia(0.3) hue-rotate(130deg) saturate(1.5)';
+            }
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            const dataUrl = canvas.toDataURL('image/jpeg');
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = `CCTV_Snap_${new Date().getTime()}.jpg`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            showToast("Snapshot Saved", "success");
+            
+            // Flash effect on screen
+            const flash = document.createElement('div');
+            flash.className = 'fixed inset-0 bg-white z-50 transition-opacity duration-500 opacity-100 pointer-events-none';
+            document.body.appendChild(flash);
+            setTimeout(() => flash.classList.replace('opacity-100', 'opacity-0'), 50);
+            setTimeout(() => flash.remove(), 550);
+        }
+
+        // Initialize App
+        window.onload = () => {
+            const session = localStorage.getItem('session');
+            // Auto login if session is less than 30 mins old
+            if (session && (Date.now() - parseInt(session) < 30 * 60 * 1000)) {
+                switchView('role-view');
+            }
+        };
+    </script>
+</body>
+</html>
