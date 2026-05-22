@@ -206,6 +206,16 @@
             <div class="scanlines"></div>
             <video id="local-video" autoplay playsinline muted></video>
             
+            <!-- Error Diagnostic Overlay (NEW) -->
+            <div id="cam-error-overlay" class="absolute inset-0 bg-black/95 z-40 hidden flex-col items-center justify-center p-6 text-center">
+                <div class="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-6 border border-red-500/30 shadow-[0_0_30px_rgba(255,0,0,0.3)]">
+                    <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                </div>
+                <h2 id="cam-error-title" class="text-2xl font-bold text-red-400 mb-3 tracking-widest font-mono">LENS ERROR</h2>
+                <p id="cam-error-desc" class="text-sm text-gray-300 font-mono mb-8 max-w-sm leading-relaxed border border-red-900/50 bg-red-950/20 p-4 rounded-lg">Detailed error description goes here.</p>
+                <button onclick="initCameraMode()" class="bg-blue-600/80 hover:bg-blue-500 text-white px-8 py-3 rounded-lg font-mono tracking-widest border border-blue-400/30 shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all active:scale-95">RETRY UPLINK</button>
+            </div>
+
             <!-- Overlays -->
             <div id="cam-motion-warning" class="absolute top-20 left-1/2 transform -translate-x-1/2 bg-red-600/90 text-white px-6 py-2 rounded-md border border-red-400 text-xs font-bold tracking-widest hidden animate-pulse shadow-[0_0_20px_rgba(255,0,0,0.6)] z-10">MOTION DETECTED</div>
             <div id="cam-night-indicator" class="absolute bottom-6 left-6 bg-blue-900/80 text-blue-200 border border-blue-500/50 px-3 py-1 rounded-sm text-xs hidden font-mono z-10">NIGHT_VISION: ACTIVE</div>
@@ -334,13 +344,10 @@
         const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-MJuw_Mv9ClNNKmDHmvm66xGbzmiTDOjkNLf-u0YaQc08zir94elz2deDZ0PZthKrPg/exec"; 
         
         const DEVICE_ID = "cctv_sys_1"; 
-        // Added more robust STUN servers for NAT traversal across 4G/5G networks
         const ICE_SERVERS = { 
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' },
-                { urls: 'stun:stun.services.mozilla.com' }
+                { urls: 'stun:stun1.l.google.com:19302' }
             ] 
         };
         
@@ -483,17 +490,46 @@
             currentRole = 'camera';
             switchView('camera-view');
             document.getElementById('cam-status-text').innerText = 'INITIALIZING HARDWARE...';
+            document.getElementById('cam-error-overlay').classList.add('hidden');
+            document.getElementById('cam-error-overlay').classList.remove('flex');
             
             try {
                 await startVideo(facingMode);
                 setupCameraWebRTC();
                 startCameraStatusPolling();
                 setupHardwareMonitors();
+                
+                document.getElementById('cam-status-text').innerText = 'SYSTEM STANDBY (READY)';
                 showToast("CAMERA ACTIVE", "success");
             } catch (err) {
-                showToast("HARDWARE ERROR", "error");
-                document.getElementById('cam-status-text').innerText = 'LENS ERROR';
-                console.error(err);
+                let errorMsg = "HARDWARE ERROR";
+                let detailedMsg = err.message || "Unknown error occurred.";
+
+                // Diagnostic Engine
+                if (err.message === "SECURE_CONTEXT_REQUIRED" || !window.isSecureContext) {
+                    errorMsg = "HTTPS REQUIRED";
+                    detailedMsg = "Browsers block the camera when you open a file directly (file://). You MUST host this code online (like on Netlify.com) or use a localhost server to allow camera access.";
+                } else if (err.name === 'NotAllowedError') {
+                    errorMsg = "PERMISSION DENIED";
+                    detailedMsg = "Camera access was blocked. Please click the Lock icon (🔒) in your browser's URL bar, allow the Camera & Microphone, and click Retry.";
+                } else if (err.name === 'NotFoundError') {
+                    errorMsg = "NO CAMERA FOUND";
+                    detailedMsg = "No camera hardware was detected on this device.";
+                } else if (err.name === 'NotReadableError') {
+                    errorMsg = "CAMERA IN USE";
+                    detailedMsg = "Your camera is currently being used by another application. Please close other apps and try again.";
+                }
+
+                showToast(errorMsg, "error");
+                document.getElementById('cam-status-text').innerText = 'LENS ERROR: ' + errorMsg;
+                
+                const errorOverlay = document.getElementById('cam-error-overlay');
+                errorOverlay.classList.remove('hidden');
+                errorOverlay.classList.add('flex');
+                document.getElementById('cam-error-title').innerText = errorMsg;
+                document.getElementById('cam-error-desc').innerText = detailedMsg;
+                
+                console.error("Initialization error:", err);
             }
         }
 
@@ -501,13 +537,40 @@
             if (localStream) {
                 localStream.getTracks().forEach(track => track.stop());
             }
-            const constraints = {
-                video: { facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } },
-                audio: true
-            };
-            localStream = await navigator.mediaDevices.getUserMedia(constraints);
+            
+            // STRICT SECURITY CHECK
+            if (!window.isSecureContext) {
+                throw new Error("SECURE_CONTEXT_REQUIRED");
+            }
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error("Camera API not supported in this browser.");
+            }
+
+            try {
+                // Attempt 1: Try HD resolution and specific camera
+                const constraints = {
+                    video: { facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } },
+                    audio: true
+                };
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+            } catch (e) {
+                console.warn("Ideal camera constraints failed, attempting basic fallback...", e);
+                // Attempt 2: Ultimate fallback. Just give me any video and audio.
+                try {
+                    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                } catch (fallbackError) {
+                    console.error("Complete camera failure:", fallbackError);
+                    throw fallbackError;
+                }
+            }
+            
             const video = document.getElementById('local-video');
             video.srcObject = localStream;
+            
+            video.onloadedmetadata = () => {
+                video.play().catch(e => console.error("Local video play error:", e));
+            };
             
             if(commands.torch) setTorch(true);
         }
@@ -522,21 +585,24 @@
         }
 
         function setupHardwareMonitors() {
+            // Guard against browsers that don't support getBattery (like iOS Safari)
             if (navigator.getBattery) {
                 navigator.getBattery().then(battery => {
                     const updateBattery = () => {
                         const level = Math.round(battery.level * 100);
                         const isCharging = battery.charging;
                         document.getElementById('cam-battery').innerText = `🔋 ${level}% ${isCharging ? '⚡' : ''}`;
-                        apiCall('set_state', { status: { battery: level, charging: isCharging, online: true } });
+                        apiCall('set_state', { status: { battery: level, charging: isCharging } });
                     };
                     updateBattery();
                     battery.addEventListener('levelchange', updateBattery);
                     battery.addEventListener('chargingchange', updateBattery);
+                }).catch(e => {
+                    // Ignore errors, just use defaults
+                    apiCall('set_state', { status: { battery: 100, charging: false } });
                 });
             } else {
-                // Fallback for browsers that block battery API (like iOS Safari)
-                apiCall('set_state', { status: { battery: 100, charging: false, online: true } });
+                 apiCall('set_state', { status: { battery: 100, charging: false } });
             }
             setInterval(analyzeVideoFrame, 1000);
         }
@@ -674,9 +740,8 @@
         let currentOfferSdp = null;
         let camIceCandidates = [];
         let camIceTimeout = null;
-        let processedViewerIce = 0;
 
-        function initCameraWebRTC() {
+        function setupCameraWebRTC() {
             if (peerConnection) {
                 peerConnection.close();
             }
@@ -696,7 +761,7 @@
                         const newIce = [...iceArr, ...camIceCandidates];
                         camIceCandidates = [];
                         await apiCall('set_state', { ice_camera: newIce });
-                    }, 1000); // Batch ICE candidates to prevent Sheets API race conditions
+                    }, 1000); 
                 }
             };
 
@@ -715,8 +780,10 @@
         }
 
         function startCameraStatusPolling() {
-            apiCall('set_state', { offer: null, answer: null, ice_viewer: [], ice_camera: [], status: { online: true } });
-            
+            let processedViewerIce = 0;
+            // Clean up old WebRTC data on startup
+            apiCall('set_state', { offer: null, answer: null, ice_viewer: [], ice_camera: [], status: { online: true, battery: 100, charging: false } });
+
             statusInterval = setInterval(async () => {
                 if (currentRole !== 'camera') return;
                 const state = await apiCall('get_state');
@@ -724,11 +791,14 @@
 
                 if (state.commands) executeCommands(state.commands);
 
-                // Handle New Offer Explicitly - Reset WebRTC when a new viewer connects
+                // Handle Explicit WebRTC Sync to fix Link Offline
+                // If there is a new Offer that doesn't match the one we already processed:
                 if (state.offer && state.offer.sdp !== currentOfferSdp) {
                     currentOfferSdp = state.offer.sdp;
                     processedViewerIce = 0;
-                    initCameraWebRTC(); // Rebuild connection cleanly
+                    
+                    // REBUILD connection
+                    setupCameraWebRTC();
                     
                     try {
                         await peerConnection.setRemoteDescription(new RTCSessionDescription(state.offer));
@@ -738,7 +808,7 @@
                     } catch(e) { console.error("Error setting remote desc:", e); }
                 }
 
-                // Add Viewer ICE candidates
+                // Strictly add ICE only after RemoteDescription is set
                 if (state.ice_viewer && state.ice_viewer.length > processedViewerIce && peerConnection && peerConnection.remoteDescription) {
                     for (let i = processedViewerIce; i < state.ice_viewer.length; i++) {
                         try { await peerConnection.addIceCandidate(new RTCIceCandidate(state.ice_viewer[i])); } catch(e) { }
@@ -746,7 +816,7 @@
                     processedViewerIce = state.ice_viewer.length;
                 }
 
-                // Heartbeat
+                // Heartbeat to let viewer know we are alive
                 apiCall('set_state', { status: { online: true } });
 
             }, 2000); 
@@ -757,8 +827,6 @@
         // ==========================================
         let viewerIceCandidates = [];
         let viewerIceTimeout = null;
-        let processedCameraIce = 0;
-        let answerReceived = false;
 
         async function initViewerMode() {
             currentRole = 'viewer';
@@ -773,10 +841,6 @@
             loader.classList.remove('hidden', 'opacity-0');
             document.getElementById('connection-status').innerText = 'GENERATING P2P KEYS...';
 
-            processedCameraIce = 0;
-            answerReceived = false;
-            currentOfferSdp = null;
-
             if (peerConnection) peerConnection.close();
             peerConnection = new RTCPeerConnection(ICE_SERVERS);
             
@@ -787,10 +851,8 @@
                 const remoteVideo = document.getElementById('remote-video');
                 if (remoteVideo.srcObject !== event.streams[0]) {
                     remoteVideo.srcObject = event.streams[0];
-                    // Strict play enforcement for mobile browsers
-                    remoteVideo.onloadedmetadata = () => {
-                        remoteVideo.play().catch(e => console.warn("Playback prevented:", e));
-                    };
+                    // Unmute requirement bypassed by <video muted> attribute
+                    remoteVideo.play().catch(e => console.warn("Playback prevented:", e));
                 }
             };
 
@@ -804,13 +866,14 @@
                         const newIce = [...iceArr, ...viewerIceCandidates];
                         viewerIceCandidates = [];
                         await apiCall('set_state', { ice_viewer: newIce });
-                    }, 1000); // Batch ICE candidates
+                    }, 1000); // Batch candidates to avoid rate limits
                 }
             };
 
             peerConnection.onconnectionstatechange = () => {
                 const state = peerConnection.connectionState;
                 if (state === 'connected') {
+                    // Aggressively hide loader when connection is established
                     loader.classList.add('opacity-0');
                     setTimeout(() => loader.classList.add('hidden'), 500);
                     updateViewerStatus(true);
@@ -825,12 +888,17 @@
             await peerConnection.setLocalDescription(offer);
             
             document.getElementById('connection-status').innerText = 'TRANSMITTING SIGNAL...';
+            // Clear out old server data so Camera knows this is a fresh connection
             await apiCall('set_state', { offer: offer, answer: null, ice_viewer: [], ice_camera: [] });
             
             listenForAnswer();
         }
 
+        let processedCameraIce = 0;
         function listenForAnswer() {
+            let answerReceived = false;
+            processedCameraIce = 0; // Reset
+            
             const checkAnswer = async () => {
                 if (currentRole !== 'viewer') return;
                 
