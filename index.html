@@ -825,15 +825,41 @@
         // ==========================================
         // VIEWER MONITOR MODE
         // ==========================================
-        let viewerIceCandidates = [];
-        let viewerIceTimeout = null;
+        function promptViewerMode() {
+            document.getElementById('role-select-buttons').classList.add('hidden');
+            const promptEl = document.getElementById('viewer-id-prompt');
+            promptEl.classList.remove('hidden');
+            
+            // Auto-fill last used ID for convenience
+            const lastId = localStorage.getItem('last_target_id');
+            if(lastId) {
+                document.getElementById('target-device-id').value = lastId;
+            }
+        }
+
+        function cancelViewerPrompt() {
+            document.getElementById('viewer-id-prompt').classList.add('hidden');
+            document.getElementById('role-select-buttons').classList.remove('hidden');
+        }
+
+        function startViewerWithId() {
+            const inputId = document.getElementById('target-device-id').value.trim().toUpperCase();
+            if(!inputId) {
+                showToast("ENTER A VALID ID", "error");
+                return;
+            }
+            currentDeviceId = inputId;
+            localStorage.setItem('last_target_id', currentDeviceId); 
+            document.getElementById('view-target-id').innerText = `TARGET: ${currentDeviceId}`;
+            initViewerMode(); 
+        }
 
         async function initViewerMode() {
             currentRole = 'viewer';
             switchView('viewer-view');
             startViewerConnection();
             startViewerStatusPolling();
-            showToast("DASHBOARD INITIALIZED", "info");
+            showToast(`LINKING TO ${currentDeviceId}`, "info");
         }
 
         async function startViewerConnection() {
