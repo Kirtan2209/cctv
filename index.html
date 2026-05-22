@@ -164,28 +164,50 @@
     <!-- ROLE SELECTION VIEW -->
     <div id="role-view" class="min-h-screen flex items-center justify-center p-4 hidden">
         <div class="glass-panel p-8 rounded-2xl w-full max-w-md text-center">
-            <h2 class="text-xl font-bold mb-8 tracking-wider">SELECT MODULE</h2>
-            <div class="grid grid-cols-1 gap-5">
-                <button onclick="initCameraMode()" class="btn-glass p-6 rounded-xl flex items-center gap-4 hover:bg-blue-500/10 group border-blue-500/20 hover:border-blue-500/50">
-                    <div class="p-3 rounded-lg bg-black/30 group-hover:bg-blue-900/30 transition-colors">
-                        <svg class="w-8 h-8 text-gray-400 group-hover:text-neonBlue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                    </div>
-                    <div class="text-left">
-                        <h3 class="font-bold text-lg tracking-wide text-gray-200 group-hover:text-white">CAMERA UNIT</h3>
-                        <p class="text-xs text-blue-200/50 mt-1 font-mono">Stream video from this device</p>
-                    </div>
-                </button>
-                <button onclick="initViewerMode()" class="btn-glass p-6 rounded-xl flex items-center gap-4 hover:bg-green-500/10 group border-green-500/20 hover:border-green-500/50">
-                    <div class="p-3 rounded-lg bg-black/30 group-hover:bg-green-900/30 transition-colors">
-                        <svg class="w-8 h-8 text-gray-400 group-hover:text-neonGreen transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-                    </div>
-                    <div class="text-left">
-                        <h3 class="font-bold text-lg tracking-wide text-gray-200 group-hover:text-white">VIEWER DASHBOARD</h3>
-                        <p class="text-xs text-green-200/50 mt-1 font-mono">Monitor & control remotely</p>
-                    </div>
-                </button>
+            
+            <!-- Default Buttons -->
+            <div id="role-select-buttons">
+                <h2 class="text-xl font-bold mb-8 tracking-wider">SELECT MODULE</h2>
+                <div class="grid grid-cols-1 gap-5">
+                    <button onclick="initCameraMode()" class="btn-glass p-6 rounded-xl flex items-center gap-4 hover:bg-blue-500/10 group border-blue-500/20 hover:border-blue-500/50">
+                        <div class="p-3 rounded-lg bg-black/30 group-hover:bg-blue-900/30 transition-colors">
+                            <svg class="w-8 h-8 text-gray-400 group-hover:text-neonBlue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                        </div>
+                        <div class="text-left">
+                            <h3 class="font-bold text-lg tracking-wide text-gray-200 group-hover:text-white">CAMERA UNIT</h3>
+                            <p class="text-xs text-blue-200/50 mt-1 font-mono">Stream video from this device</p>
+                        </div>
+                    </button>
+                    <button onclick="promptViewerMode()" class="btn-glass p-6 rounded-xl flex items-center gap-4 hover:bg-green-500/10 group border-green-500/20 hover:border-green-500/50">
+                        <div class="p-3 rounded-lg bg-black/30 group-hover:bg-green-900/30 transition-colors">
+                            <svg class="w-8 h-8 text-gray-400 group-hover:text-neonGreen transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                        </div>
+                        <div class="text-left">
+                            <h3 class="font-bold text-lg tracking-wide text-gray-200 group-hover:text-white">VIEWER DASHBOARD</h3>
+                            <p class="text-xs text-green-200/50 mt-1 font-mono">Monitor & control remotely</p>
+                        </div>
+                    </button>
+                </div>
+                <button onclick="logout()" class="mt-8 text-sm text-gray-500 hover:text-red-400 font-mono tracking-widest transition-colors">LOGOUT / DISCONNECT</button>
             </div>
-            <button onclick="logout()" class="mt-8 text-sm text-gray-500 hover:text-red-400 font-mono tracking-widest transition-colors">LOGOUT / DISCONNECT</button>
+
+            <!-- Viewer ID Prompt (Hidden by default) -->
+            <div id="viewer-id-prompt" class="hidden fade-in-view">
+                <h2 class="text-xl font-bold mb-2 tracking-wider text-green-400">TARGET UPLINK</h2>
+                <p class="text-xs text-gray-400 mb-6 font-mono">ENTER CAMERA ID TO CONNECT</p>
+                
+                <input type="text" id="target-device-id" class="w-full bg-black/40 border border-green-900/50 rounded-lg px-4 py-4 text-white focus:outline-none focus:border-neonGreen focus:ring-1 focus:ring-neonGreen mb-6 text-center tracking-widest font-mono shadow-inner transition-all uppercase" placeholder="e.g. CAM-1234">
+                
+                <div class="flex gap-4">
+                    <button onclick="cancelViewerPrompt()" class="flex-1 bg-gray-800/80 hover:bg-gray-700 text-gray-300 font-bold py-4 px-4 rounded-lg transition-all border border-gray-600/30 tracking-widest text-sm">
+                        CANCEL
+                    </button>
+                    <button onclick="startViewerWithId()" class="flex-1 bg-green-600/80 hover:bg-green-500 text-white font-bold py-4 px-4 rounded-lg transition-all shadow-[0_0_15px_rgba(57,255,20,0.3)] hover:shadow-[0_0_30px_rgba(57,255,20,0.6)] border border-green-400/30 tracking-widest text-sm">
+                        CONNECT
+                    </button>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -194,7 +216,9 @@
         <div class="p-4 flex justify-between items-center bg-gradient-to-b from-black/90 via-black/50 to-transparent absolute top-0 w-full z-20">
             <div class="flex items-center gap-3">
                 <div id="cam-status-dot" class="w-3 h-3 bg-red-500 rounded-full shadow-[0_0_10px_rgba(255,0,0,0.8)] animate-pulse-fast"></div>
-                <span class="text-xs font-mono font-bold tracking-widest text-gray-200" id="cam-status-text">SYSTEM STANDBY</span>
+                <span class="text-xs font-mono font-bold tracking-widest text-gray-200" id="cam-status-text">INITIALIZING...</span>
+                <!-- Dynamic Camera ID display -->
+                <span class="text-[10px] bg-blue-900/40 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded ml-2 font-mono" id="cam-my-id"></span>
             </div>
             <div class="flex gap-4 text-xs font-mono text-gray-300 items-center">
                 <span id="cam-battery" class="bg-black/50 px-2 py-1 rounded">🔋 --%</span>
@@ -206,7 +230,7 @@
             <div class="scanlines"></div>
             <video id="local-video" autoplay playsinline muted></video>
             
-            <!-- Error Diagnostic Overlay (NEW) -->
+            <!-- Error Diagnostic Overlay -->
             <div id="cam-error-overlay" class="absolute inset-0 bg-black/95 z-40 hidden flex-col items-center justify-center p-6 text-center">
                 <div class="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-6 border border-red-500/30 shadow-[0_0_30px_rgba(255,0,0,0.3)]">
                     <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
@@ -243,9 +267,13 @@
                 </div>
             </div>
             <div class="flex items-center gap-6">
+                <!-- Target ID Display -->
                 <div class="text-right hidden sm:block bg-black/40 px-3 py-1 rounded-lg border border-white/5">
-                    <div class="text-[10px] text-gray-500 font-mono uppercase tracking-widest">Target Power</div>
-                    <div id="view-battery" class="font-mono text-sm text-green-400 font-bold">--%</div>
+                    <div id="view-target-id" class="text-[10px] text-gray-500 font-mono uppercase tracking-widest">TARGET: ---</div>
+                    <div class="flex items-center gap-2 justify-end">
+                        <div class="text-[9px] text-gray-600 font-mono uppercase">Power:</div>
+                        <div id="view-battery" class="font-mono text-sm text-green-400 font-bold">--%</div>
+                    </div>
                 </div>
                 <button onclick="logout()" class="btn-glass px-4 py-2 rounded-lg text-xs font-mono tracking-widest text-red-300 hover:text-red-100 border-red-900/30 hover:border-red-500/50">DISCONNECT</button>
             </div>
@@ -343,7 +371,8 @@
         // ==========================================
         const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-MJuw_Mv9ClNNKmDHmvm66xGbzmiTDOjkNLf-u0YaQc08zir94elz2deDZ0PZthKrPg/exec"; 
         
-        const DEVICE_ID = "cctv_sys_1"; 
+        let currentDeviceId = null; // Dynamic Device ID
+        
         const ICE_SERVERS = { 
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -410,8 +439,9 @@
         // BACKEND API (GOOGLE SHEETS)
         // ==========================================
         async function apiCall(action, payload = {}) {
+            if (!currentDeviceId) return null;
             try {
-                const url = `${APPS_SCRIPT_URL}?action=${action}&id=${DEVICE_ID}`;
+                const url = `${APPS_SCRIPT_URL}?action=${action}&id=${currentDeviceId}`;
                 const response = await fetch(url, {
                     method: 'POST',
                     mode: 'cors',
@@ -432,6 +462,9 @@
         // AUTHENTICATION
         // ==========================================
         async function handleLogin() {
+            // Temporary device ID for auth ping
+            currentDeviceId = "auth_ping";
+            
             const pwd = document.getElementById('auth-password').value;
             if (!pwd) return;
 
@@ -471,6 +504,7 @@
                 showToast("UPLINK FAILED", "error");
                 document.querySelector('#auth-view button').innerText = "AUTHENTICATE";
             }
+            currentDeviceId = null; // reset
         }
 
         function logout() {
@@ -487,6 +521,15 @@
         // CAMERA UNIT MODE
         // ==========================================
         async function initCameraMode() {
+            // ID Generation Logic
+            let savedId = localStorage.getItem('my_cam_id');
+            if (!savedId) {
+                savedId = 'CAM-' + Math.floor(1000 + Math.random() * 9000);
+                localStorage.setItem('my_cam_id', savedId);
+            }
+            currentDeviceId = savedId;
+            document.getElementById('cam-my-id').innerText = `ID: ${currentDeviceId}`;
+
             currentRole = 'camera';
             switchView('camera-view');
             document.getElementById('cam-status-text').innerText = 'INITIALIZING HARDWARE...';
@@ -499,8 +542,9 @@
                 startCameraStatusPolling();
                 setupHardwareMonitors();
                 
+                // Explicitly tell UI that camera is ready
                 document.getElementById('cam-status-text').innerText = 'SYSTEM STANDBY (READY)';
-                showToast("CAMERA ACTIVE", "success");
+                showToast("CAMERA ACTIVE & READY", "success");
             } catch (err) {
                 let errorMsg = "HARDWARE ERROR";
                 let detailedMsg = err.message || "Unknown error occurred.";
@@ -568,6 +612,7 @@
             const video = document.getElementById('local-video');
             video.srcObject = localStream;
             
+            // Force play once metadata is loaded (Bypasses iOS/Android black screen bugs)
             video.onloadedmetadata = () => {
                 video.play().catch(e => console.error("Local video play error:", e));
             };
@@ -598,7 +643,7 @@
                     battery.addEventListener('levelchange', updateBattery);
                     battery.addEventListener('chargingchange', updateBattery);
                 }).catch(e => {
-                    // Ignore errors, just use defaults
+                    // Ignore errors on iOS Safari, just push dummy data so backend doesn't crash
                     apiCall('set_state', { status: { battery: 100, charging: false } });
                 });
             } else {
@@ -737,7 +782,7 @@
         // ==========================================
         // WEBRTC SIGNALING (CAMERA SIDE)
         // ==========================================
-        let currentOfferSdp = null;
+        let currentOfferSdp = null; // Track current offer to handle re-connections
         let camIceCandidates = [];
         let camIceTimeout = null;
 
@@ -761,7 +806,7 @@
                         const newIce = [...iceArr, ...camIceCandidates];
                         camIceCandidates = [];
                         await apiCall('set_state', { ice_camera: newIce });
-                    }, 1000); 
+                    }, 1000); // Batch candidates
                 }
             };
 
@@ -781,6 +826,7 @@
 
         function startCameraStatusPolling() {
             let processedViewerIce = 0;
+            
             // Clean up old WebRTC data on startup
             apiCall('set_state', { offer: null, answer: null, ice_viewer: [], ice_camera: [], status: { online: true, battery: 100, charging: false } });
 
@@ -861,6 +907,9 @@
             startViewerStatusPolling();
             showToast(`LINKING TO ${currentDeviceId}`, "info");
         }
+
+        let viewerIceCandidates = [];
+        let viewerIceTimeout = null;
 
         async function startViewerConnection() {
             const loader = document.getElementById('video-loader');
