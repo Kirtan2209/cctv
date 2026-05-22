@@ -334,11 +334,13 @@
         const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-MJuw_Mv9ClNNKmDHmvm66xGbzmiTDOjkNLf-u0YaQc08zir94elz2deDZ0PZthKrPg/exec"; 
         
         const DEVICE_ID = "cctv_sys_1"; 
-        // Added fallback STUN servers for better NAT traversal
+        // Added more robust STUN servers for NAT traversal across 4G/5G networks
         const ICE_SERVERS = { 
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun.services.mozilla.com' }
             ] 
         };
         
@@ -524,12 +526,17 @@
                 navigator.getBattery().then(battery => {
                     const updateBattery = () => {
                         const level = Math.round(battery.level * 100);
-                        document.getElementById('cam-battery').innerText = `🔋 ${level}%`;
-                        apiCall('set_state', { status: { battery: level } });
+                        const isCharging = battery.charging;
+                        document.getElementById('cam-battery').innerText = `🔋 ${level}% ${isCharging ? '⚡' : ''}`;
+                        apiCall('set_state', { status: { battery: level, charging: isCharging, online: true } });
                     };
                     updateBattery();
                     battery.addEventListener('levelchange', updateBattery);
+                    battery.addEventListener('chargingchange', updateBattery);
                 });
+            } else {
+                // Fallback for browsers that block battery API (like iOS Safari)
+                apiCall('set_state', { status: { battery: 100, charging: false, online: true } });
             }
             setInterval(analyzeVideoFrame, 1000);
         }
@@ -664,17 +671,32 @@
         // ==========================================
         // WEBRTC SIGNALING (CAMERA SIDE)
         // ==========================================
-        function setupCameraWebRTC() {
+        let currentOfferSdp = null;
+        let camIceCandidates = [];
+        let camIceTimeout = null;
+        let processedViewerIce = 0;
+
+        function initCameraWebRTC() {
+            if (peerConnection) {
+                peerConnection.close();
+            }
             peerConnection = new RTCPeerConnection(ICE_SERVERS);
             
-            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+            if (localStream) {
+                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+            }
 
-            peerConnection.onicecandidate = async (event) => {
+            peerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
-                    const state = await apiCall('get_state') || {};
-                    const iceArr = state.ice_camera || [];
-                    iceArr.push(event.candidate);
-                    await apiCall('set_state', { ice_camera: iceArr });
+                    camIceCandidates.push(event.candidate);
+                    clearTimeout(camIceTimeout);
+                    camIceTimeout = setTimeout(async () => {
+                        const state = await apiCall('get_state') || {};
+                        const iceArr = state.ice_camera || [];
+                        const newIce = [...iceArr, ...camIceCandidates];
+                        camIceCandidates = [];
+                        await apiCall('set_state', { ice_camera: newIce });
+                    }, 1000); // Batch ICE candidates to prevent Sheets API race conditions
                 }
             };
 
@@ -690,14 +712,11 @@
                     dot.classList.replace('shadow-[0_0_10px_rgba(0,255,0,0.8)]', 'shadow-[0_0_10px_rgba(255,0,0,0.8)]');
                 }
             };
-
-            apiCall('set_state', { offer: null, answer: null, ice_viewer: [], ice_camera: [], status: { online: true, battery: 100 } });
         }
 
         function startCameraStatusPolling() {
-            let handledOffer = false;
-            let processedViewerIce = 0;
-
+            apiCall('set_state', { offer: null, answer: null, ice_viewer: [], ice_camera: [], status: { online: true } });
+            
             statusInterval = setInterval(async () => {
                 if (currentRole !== 'camera') return;
                 const state = await apiCall('get_state');
@@ -705,9 +724,12 @@
 
                 if (state.commands) executeCommands(state.commands);
 
-                // Handle Offer explicitly
-                if (state.offer && !handledOffer && peerConnection) {
-                    handledOffer = true;
+                // Handle New Offer Explicitly - Reset WebRTC when a new viewer connects
+                if (state.offer && state.offer.sdp !== currentOfferSdp) {
+                    currentOfferSdp = state.offer.sdp;
+                    processedViewerIce = 0;
+                    initCameraWebRTC(); // Rebuild connection cleanly
+                    
                     try {
                         await peerConnection.setRemoteDescription(new RTCSessionDescription(state.offer));
                         const answer = await peerConnection.createAnswer();
@@ -716,7 +738,7 @@
                     } catch(e) { console.error("Error setting remote desc:", e); }
                 }
 
-                // Strictly add ICE only after RemoteDescription is set
+                // Add Viewer ICE candidates
                 if (state.ice_viewer && state.ice_viewer.length > processedViewerIce && peerConnection && peerConnection.remoteDescription) {
                     for (let i = processedViewerIce; i < state.ice_viewer.length; i++) {
                         try { await peerConnection.addIceCandidate(new RTCIceCandidate(state.ice_viewer[i])); } catch(e) { }
@@ -724,7 +746,7 @@
                     processedViewerIce = state.ice_viewer.length;
                 }
 
-                // Heartbeat to let viewer know we are alive
+                // Heartbeat
                 apiCall('set_state', { status: { online: true } });
 
             }, 2000); 
@@ -733,6 +755,11 @@
         // ==========================================
         // VIEWER MONITOR MODE
         // ==========================================
+        let viewerIceCandidates = [];
+        let viewerIceTimeout = null;
+        let processedCameraIce = 0;
+        let answerReceived = false;
+
         async function initViewerMode() {
             currentRole = 'viewer';
             switchView('viewer-view');
@@ -746,6 +773,10 @@
             loader.classList.remove('hidden', 'opacity-0');
             document.getElementById('connection-status').innerText = 'GENERATING P2P KEYS...';
 
+            processedCameraIce = 0;
+            answerReceived = false;
+            currentOfferSdp = null;
+
             if (peerConnection) peerConnection.close();
             peerConnection = new RTCPeerConnection(ICE_SERVERS);
             
@@ -756,24 +787,30 @@
                 const remoteVideo = document.getElementById('remote-video');
                 if (remoteVideo.srcObject !== event.streams[0]) {
                     remoteVideo.srcObject = event.streams[0];
-                    // Unmute requirement bypassed by <video muted> attribute
-                    remoteVideo.play().catch(e => console.warn("Playback prevented:", e));
+                    // Strict play enforcement for mobile browsers
+                    remoteVideo.onloadedmetadata = () => {
+                        remoteVideo.play().catch(e => console.warn("Playback prevented:", e));
+                    };
                 }
             };
 
-            peerConnection.onicecandidate = async (event) => {
+            peerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
-                    const state = await apiCall('get_state') || {};
-                    const iceArr = state.ice_viewer || [];
-                    iceArr.push(event.candidate);
-                    await apiCall('set_state', { ice_viewer: iceArr });
+                    viewerIceCandidates.push(event.candidate);
+                    clearTimeout(viewerIceTimeout);
+                    viewerIceTimeout = setTimeout(async () => {
+                        const state = await apiCall('get_state') || {};
+                        const iceArr = state.ice_viewer || [];
+                        const newIce = [...iceArr, ...viewerIceCandidates];
+                        viewerIceCandidates = [];
+                        await apiCall('set_state', { ice_viewer: newIce });
+                    }, 1000); // Batch ICE candidates
                 }
             };
 
             peerConnection.onconnectionstatechange = () => {
                 const state = peerConnection.connectionState;
                 if (state === 'connected') {
-                    // Aggressively hide loader when connection is established
                     loader.classList.add('opacity-0');
                     setTimeout(() => loader.classList.add('hidden'), 500);
                     updateViewerStatus(true);
@@ -793,10 +830,7 @@
             listenForAnswer();
         }
 
-        let processedCameraIce = 0;
         function listenForAnswer() {
-            let answerReceived = false;
-            
             const checkAnswer = async () => {
                 if (currentRole !== 'viewer') return;
                 
@@ -833,17 +867,17 @@
                 const state = await apiCall('get_state');
                 if (!state || !state.status) return;
 
-                // Removed buggy clock drift check. Relying directly on WebRTC state + DB flag
                 if(peerConnection && peerConnection.connectionState === 'connected') {
                     updateViewerStatus(true);
                 } else if (state.status.online === false) {
                     updateViewerStatus(false);
                 }
 
-                if (state.status.battery) {
+                if (state.status.battery !== undefined) {
                     const bat = document.getElementById('view-battery');
-                    bat.innerText = `${state.status.battery}%`;
-                    bat.className = `font-mono text-sm font-bold ${state.status.battery < 20 ? 'text-red-500 animate-pulse' : 'text-green-400'}`;
+                    const isCharging = state.status.charging;
+                    bat.innerText = `${state.status.battery}% ${isCharging ? '⚡' : ''}`;
+                    bat.className = `font-mono text-sm font-bold ${state.status.battery < 20 && !isCharging ? 'text-red-500 animate-pulse' : 'text-green-400'}`;
                 }
 
                 const alertEl = document.getElementById('view-motion-alert');
