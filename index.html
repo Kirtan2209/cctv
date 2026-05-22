@@ -21,6 +21,8 @@
                         'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                         'shake': 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both infinite',
                         'siren-flash': 'sirenFlash 0.5s infinite alternate',
+                        'radar-sweep': 'sweep 2s linear infinite',
+                        'stagger-up': 'staggerUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards'
                     },
                     keyframes: {
                         shake: {
@@ -42,6 +44,14 @@
                         fadeIn: {
                             '0%': { opacity: '0', transform: 'translateY(20px)' },
                             '100%': { opacity: '1', transform: 'translateY(0)' }
+                        },
+                        sweep: {
+                            '0%': { transform: 'rotate(0deg)' },
+                            '100%': { transform: 'rotate(360deg)' }
+                        },
+                        staggerUp: {
+                            '0%': { opacity: '0', transform: 'translateY(30px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
                         }
                     }
                 }
@@ -60,8 +70,8 @@
         
         .glass-panel {
             background: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
         }
@@ -69,25 +79,49 @@
             background: rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(4px);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .btn-glass:active { transform: scale(0.95); }
+        .btn-glass:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+        .btn-glass:active { transform: translateY(1px) scale(0.95); }
         .btn-active-blue {
             background: rgba(0, 243, 255, 0.2);
             border-color: #00f3ff;
-            box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.5);
             color: #00f3ff;
         }
         .btn-active-red {
             background: rgba(255, 0, 60, 0.2);
             border-color: #ff003c;
-            box-shadow: 0 0 15px rgba(255, 0, 60, 0.4);
+            box-shadow: 0 0 20px rgba(255, 0, 60, 0.5);
             color: #ff003c;
         }
-        .video-container { position: relative; border-radius: 1rem; overflow: hidden; background: #000; }
-        video { width: 100%; height: 100%; object-fit: cover; }
-        .night-vision { filter: brightness(1.5) contrast(1.2) sepia(0.3) hue-rotate(130deg) saturate(1.5); }
+        .btn-active-green {
+            background: rgba(57, 255, 20, 0.2);
+            border-color: #39ff14;
+            box-shadow: 0 0 20px rgba(57, 255, 20, 0.4);
+            color: #39ff14;
+        }
         
+        .video-container { position: relative; border-radius: 1rem; overflow: hidden; background: #050505; box-shadow: inset 0 0 50px rgba(0,0,0,0.8); }
+        video { width: 100%; height: 100%; object-fit: cover; z-index: 1; position: relative; }
+        .night-vision { filter: brightness(1.6) contrast(1.3) sepia(0.4) hue-rotate(130deg) saturate(1.5); }
+        
+        /* Scanline overlay for that authentic CCTV feel */
+        .scanlines {
+            position: absolute; inset: 0; z-index: 5; pointer-events: none;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.15));
+            background-size: 100% 4px;
+        }
+
+        /* Radar Scanner Effect */
+        .radar {
+            position: absolute; width: 100%; height: 100%; border-radius: 50%;
+            background: conic-gradient(from 0deg, transparent 70%, rgba(0, 243, 255, 0.6) 100%);
+        }
+
         /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #0f172a; }
@@ -112,65 +146,69 @@
 
     <!-- AUTH VIEW -->
     <div id="auth-view" class="fade-in-view min-h-screen flex items-center justify-center p-4 z-10 relative">
-        <div class="glass-panel p-8 rounded-2xl w-full max-w-md text-center">
-            <div class="w-16 h-16 mx-auto bg-blue-500/20 rounded-full flex items-center justify-center mb-4 border border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.5)]">
-                <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+        <div class="glass-panel p-8 rounded-2xl w-full max-w-md text-center border-t border-blue-500/30">
+            <div class="w-16 h-16 mx-auto bg-blue-500/10 rounded-full flex items-center justify-center mb-4 border border-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.3)]">
+                <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
             </div>
-            <h1 class="text-2xl font-bold mb-2 tracking-wider">CCTV SECURE</h1>
-            <p class="text-sm text-gray-400 mb-6">Enter master password to access system</p>
+            <h1 class="text-2xl font-bold mb-2 tracking-widest bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-300">CCTV SECURE</h1>
+            <p class="text-sm text-blue-200/60 mb-6 font-mono">ENCRYPTED P2P SYSTEM</p>
             
-            <input type="password" id="auth-password" class="w-full bg-black/30 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-neonBlue focus:ring-1 focus:ring-neonBlue mb-4 text-center tracking-[0.2em]" placeholder="••••••••">
+            <input type="password" id="auth-password" class="w-full bg-black/40 border border-blue-900/50 rounded-lg px-4 py-4 text-white focus:outline-none focus:border-neonBlue focus:ring-1 focus:ring-neonBlue mb-6 text-center tracking-[0.3em] font-mono shadow-inner transition-all" placeholder="PASSWORD">
             
-            <button onclick="handleLogin()" class="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold py-3 px-4 rounded-lg transition-all shadow-[0_0_15px_rgba(8,145,178,0.4)] hover:shadow-[0_0_25px_rgba(8,145,178,0.6)]">
+            <button onclick="handleLogin()" class="w-full bg-blue-600/80 hover:bg-blue-500 text-white font-bold py-4 px-4 rounded-lg transition-all shadow-[0_0_15px_rgba(37,99,235,0.4)] hover:shadow-[0_0_30px_rgba(37,99,235,0.8)] border border-blue-400/30 tracking-widest">
                 AUTHENTICATE
             </button>
-            <p id="auth-error" class="text-red-400 text-sm mt-3 hidden"></p>
         </div>
     </div>
 
     <!-- ROLE SELECTION VIEW -->
     <div id="role-view" class="min-h-screen flex items-center justify-center p-4 hidden">
         <div class="glass-panel p-8 rounded-2xl w-full max-w-md text-center">
-            <h2 class="text-xl font-bold mb-6">Select Device Role</h2>
-            <div class="grid grid-cols-1 gap-4">
-                <button onclick="initCameraMode()" class="btn-glass p-6 rounded-xl flex flex-col items-center gap-3 hover:bg-white/10 group">
-                    <svg class="w-12 h-12 text-gray-300 group-hover:text-neonBlue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                    <div>
-                        <h3 class="font-bold text-lg">Camera Unit</h3>
-                        <p class="text-xs text-gray-400">Set up this device as the CCTV camera</p>
+            <h2 class="text-xl font-bold mb-8 tracking-wider">SELECT MODULE</h2>
+            <div class="grid grid-cols-1 gap-5">
+                <button onclick="initCameraMode()" class="btn-glass p-6 rounded-xl flex items-center gap-4 hover:bg-blue-500/10 group border-blue-500/20 hover:border-blue-500/50">
+                    <div class="p-3 rounded-lg bg-black/30 group-hover:bg-blue-900/30 transition-colors">
+                        <svg class="w-8 h-8 text-gray-400 group-hover:text-neonBlue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="text-left">
+                        <h3 class="font-bold text-lg tracking-wide text-gray-200 group-hover:text-white">CAMERA UNIT</h3>
+                        <p class="text-xs text-blue-200/50 mt-1 font-mono">Stream video from this device</p>
                     </div>
                 </button>
-                <button onclick="initViewerMode()" class="btn-glass p-6 rounded-xl flex flex-col items-center gap-3 hover:bg-white/10 group">
-                    <svg class="w-12 h-12 text-gray-300 group-hover:text-neonGreen transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-                    <div>
-                        <h3 class="font-bold text-lg">Viewer Monitor</h3>
-                        <p class="text-xs text-gray-400">View and control the remote camera</p>
+                <button onclick="initViewerMode()" class="btn-glass p-6 rounded-xl flex items-center gap-4 hover:bg-green-500/10 group border-green-500/20 hover:border-green-500/50">
+                    <div class="p-3 rounded-lg bg-black/30 group-hover:bg-green-900/30 transition-colors">
+                        <svg class="w-8 h-8 text-gray-400 group-hover:text-neonGreen transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div class="text-left">
+                        <h3 class="font-bold text-lg tracking-wide text-gray-200 group-hover:text-white">VIEWER DASHBOARD</h3>
+                        <p class="text-xs text-green-200/50 mt-1 font-mono">Monitor & control remotely</p>
                     </div>
                 </button>
             </div>
-            <button onclick="logout()" class="mt-6 text-sm text-gray-400 hover:text-white underline">Logout</button>
+            <button onclick="logout()" class="mt-8 text-sm text-gray-500 hover:text-red-400 font-mono tracking-widest transition-colors">LOGOUT / DISCONNECT</button>
         </div>
     </div>
 
     <!-- CAMERA UNIT VIEW -->
     <div id="camera-view" class="min-h-screen flex flex-col hidden bg-black">
-        <div class="p-4 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent absolute top-0 w-full z-20">
-            <div class="flex items-center gap-2">
-                <div id="cam-status-dot" class="w-3 h-3 bg-red-500 rounded-full animate-pulse-fast"></div>
-                <span class="text-sm font-bold tracking-widest text-gray-200" id="cam-status-text">STANDBY</span>
+        <div class="p-4 flex justify-between items-center bg-gradient-to-b from-black/90 via-black/50 to-transparent absolute top-0 w-full z-20">
+            <div class="flex items-center gap-3">
+                <div id="cam-status-dot" class="w-3 h-3 bg-red-500 rounded-full shadow-[0_0_10px_rgba(255,0,0,0.8)] animate-pulse-fast"></div>
+                <span class="text-xs font-mono font-bold tracking-widest text-gray-200" id="cam-status-text">SYSTEM STANDBY</span>
             </div>
-            <div class="flex gap-3 text-sm text-gray-300 items-center">
-                <span id="cam-battery">🔋 --%</span>
-                <button onclick="stopCamera()" class="bg-red-500/20 text-red-400 px-3 py-1 rounded border border-red-500/50">STOP</button>
+            <div class="flex gap-4 text-xs font-mono text-gray-300 items-center">
+                <span id="cam-battery" class="bg-black/50 px-2 py-1 rounded">🔋 --%</span>
+                <button onclick="stopCamera()" class="bg-red-500/20 text-red-400 px-4 py-1 rounded border border-red-500/50 hover:bg-red-500/40 transition-colors">ABORT</button>
             </div>
         </div>
         
         <div class="flex-1 relative video-container rounded-none">
+            <div class="scanlines"></div>
             <video id="local-video" autoplay playsinline muted></video>
             
             <!-- Overlays -->
-            <div id="cam-motion-warning" class="absolute top-16 left-1/2 transform -translate-x-1/2 bg-red-600/80 text-white px-4 py-1 rounded-full text-xs font-bold tracking-widest hidden animate-pulse">MOTION DETECTED</div>
-            <div id="cam-night-indicator" class="absolute bottom-4 left-4 bg-blue-600/80 text-white px-3 py-1 rounded text-xs hidden font-mono">NIGHT VISION AUTO</div>
+            <div id="cam-motion-warning" class="absolute top-20 left-1/2 transform -translate-x-1/2 bg-red-600/90 text-white px-6 py-2 rounded-md border border-red-400 text-xs font-bold tracking-widest hidden animate-pulse shadow-[0_0_20px_rgba(255,0,0,0.6)] z-10">MOTION DETECTED</div>
+            <div id="cam-night-indicator" class="absolute bottom-6 left-6 bg-blue-900/80 text-blue-200 border border-blue-500/50 px-3 py-1 rounded-sm text-xs hidden font-mono z-10">NIGHT_VISION: ACTIVE</div>
             
             <!-- Hidden canvas for motion detection -->
             <canvas id="motion-canvas" class="hidden"></canvas>
@@ -181,82 +219,108 @@
     <!-- VIEWER MONITOR VIEW -->
     <div id="viewer-view" class="min-h-screen flex flex-col hidden p-2 md:p-6 gap-4">
         <!-- Header -->
-        <header class="glass-panel rounded-2xl p-4 flex justify-between items-center">
-            <div>
-                <h1 class="font-bold text-xl text-white tracking-wide">DASHBOARD</h1>
-                <div class="flex items-center gap-2 mt-1">
-                    <div id="view-status-dot" class="w-2 h-2 bg-red-500 rounded-full"></div>
-                    <span id="view-status-text" class="text-xs text-gray-400">Offline</span>
+        <header class="glass-panel rounded-2xl p-4 flex justify-between items-center border-b border-white/5">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-blue-500/20 rounded-lg">
+                    <svg class="w-5 h-5 text-neonBlue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg text-white tracking-widest leading-none">TACTICAL DASHBOARD</h1>
+                    <div class="flex items-center gap-2 mt-1">
+                        <div id="view-status-dot" class="w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(255,0,0,0.8)]"></div>
+                        <span id="view-status-text" class="text-[10px] uppercase tracking-wider text-gray-400 font-mono">Link Offline</span>
+                    </div>
                 </div>
             </div>
-            <div class="flex items-center gap-4">
-                <div class="text-right hidden sm:block">
-                    <div class="text-xs text-gray-400">Cam Battery</div>
-                    <div id="view-battery" class="font-mono text-sm text-green-400">--%</div>
+            <div class="flex items-center gap-6">
+                <div class="text-right hidden sm:block bg-black/40 px-3 py-1 rounded-lg border border-white/5">
+                    <div class="text-[10px] text-gray-500 font-mono uppercase tracking-widest">Target Power</div>
+                    <div id="view-battery" class="font-mono text-sm text-green-400 font-bold">--%</div>
                 </div>
-                <button onclick="logout()" class="btn-glass px-4 py-2 rounded-lg text-sm text-gray-300 hover:text-white">Exit</button>
+                <button onclick="logout()" class="btn-glass px-4 py-2 rounded-lg text-xs font-mono tracking-widest text-red-300 hover:text-red-100 border-red-900/30 hover:border-red-500/50">DISCONNECT</button>
             </div>
         </header>
 
         <!-- Main Video Area -->
         <main class="flex-1 flex flex-col md:flex-row gap-4 min-h-[50vh]">
-            <div class="flex-1 glass-panel rounded-2xl p-2 relative flex flex-col">
-                <div class="absolute top-4 left-4 z-10 flex gap-2">
-                    <span class="bg-black/60 backdrop-blur px-2 py-1 rounded text-xs font-mono text-white/80" id="timestamp">LIVE</span>
-                    <span id="view-motion-alert" class="bg-red-500/80 px-2 py-1 rounded text-xs font-bold hidden animate-pulse">MOTION!</span>
+            <div class="flex-1 glass-panel rounded-2xl p-2 relative flex flex-col overflow-hidden">
+                <div class="absolute top-5 left-5 z-20 flex gap-2">
+                    <span class="bg-black/80 border border-white/10 backdrop-blur px-3 py-1 rounded-sm text-xs font-mono text-white/90 flex items-center gap-2">
+                        <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse-fast"></div> REC
+                    </span>
+                    <span id="timestamp" class="bg-black/80 border border-white/10 backdrop-blur px-3 py-1 rounded-sm text-xs font-mono text-white/90 hidden sm:block">00:00:00</span>
+                    <span id="view-motion-alert" class="bg-red-600/90 text-white border border-red-400 px-3 py-1 rounded-sm text-xs font-bold font-mono hidden animate-pulse shadow-[0_0_15px_rgba(255,0,0,0.5)]">ALERT: MOTION</span>
                 </div>
                 
-                <div class="flex-1 video-container bg-gray-900 rounded-xl relative group">
-                    <video id="remote-video" autoplay playsinline class="transition-all duration-700"></video>
+                <div class="flex-1 video-container rounded-xl relative group bg-black">
+                    <div class="scanlines"></div>
+                    <!-- IMPORTANT: muted property added so browser doesn't block autoplay -->
+                    <video id="remote-video" autoplay playsinline muted class="transition-all duration-700 w-full h-full object-cover"></video>
                     
                     <!-- Connection Loading Overlay -->
-                    <div id="video-loader" class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-20">
-                        <svg class="animate-spin h-10 w-10 text-neonBlue mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <p class="text-sm text-blue-300 tracking-widest animate-pulse" id="connection-status">CONNECTING TO CAMERA...</p>
+                    <div id="video-loader" class="absolute inset-0 bg-black/90 flex flex-col items-center justify-center z-30 transition-opacity duration-500">
+                        <div class="relative w-24 h-24 mb-6">
+                            <div class="absolute inset-0 border-2 border-blue-900 rounded-full"></div>
+                            <div class="absolute inset-0 border-t-2 border-neonBlue rounded-full animate-spin"></div>
+                            <div class="absolute top-1/2 left-1/2 w-1/2 h-1 bg-gradient-to-r from-neonBlue to-transparent origin-left radar-sweep opacity-50 transform -translate-y-1/2"></div>
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <svg class="w-8 h-8 text-blue-500/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"></path></svg>
+                            </div>
+                        </div>
+                        <p class="text-xs font-mono text-blue-400 tracking-[0.2em] animate-pulse" id="connection-status">ESTABLISHING UPLINK...</p>
                     </div>
                 </div>
             </div>
 
             <!-- Controls Panel -->
-            <aside class="w-full md:w-80 glass-panel rounded-2xl p-4 flex flex-col gap-4">
-                <h3 class="text-xs font-bold text-gray-400 tracking-widest uppercase mb-2">Tactical Controls</h3>
+            <aside class="w-full md:w-80 glass-panel rounded-2xl p-5 flex flex-col gap-4 border-l border-white/5">
+                <h3 class="text-[10px] font-bold text-gray-500 tracking-[0.2em] uppercase font-mono mb-2 flex items-center gap-2">
+                    <div class="w-1 h-3 bg-blue-500"></div> System Controls
+                </h3>
                 
                 <div class="grid grid-cols-2 gap-3">
                     <!-- Siren -->
-                    <button id="btn-siren" onclick="toggleCommand('siren')" class="btn-glass p-4 rounded-xl flex flex-col items-center gap-2">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                        <span class="text-xs font-bold">SIREN ALARM</span>
+                    <button id="btn-siren" onclick="toggleCommand('siren')" class="btn-glass p-4 rounded-xl flex flex-col items-center gap-3 opacity-0 animate-stagger-up" style="animation-delay: 0.1s">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                        <span class="text-[10px] font-bold tracking-wider font-mono">ALARM</span>
                     </button>
                     
                     <!-- Flashlight -->
-                    <button id="btn-torch" onclick="toggleCommand('torch')" class="btn-glass p-4 rounded-xl flex flex-col items-center gap-2">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
-                        <span class="text-xs font-bold">FLASHLIGHT</span>
+                    <button id="btn-torch" onclick="toggleCommand('torch')" class="btn-glass p-4 rounded-xl flex flex-col items-center gap-3 opacity-0 animate-stagger-up" style="animation-delay: 0.2s">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                        <span class="text-[10px] font-bold tracking-wider font-mono">ILLUMINATE</span>
                     </button>
                     
                     <!-- Night Mode -->
-                    <button id="btn-night" onclick="toggleCommand('night')" class="btn-glass p-4 rounded-xl flex flex-col items-center gap-2">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
-                        <span class="text-xs font-bold">NIGHT VISION</span>
+                    <button id="btn-night" onclick="toggleCommand('night')" class="btn-glass p-4 rounded-xl flex flex-col items-center gap-3 opacity-0 animate-stagger-up" style="animation-delay: 0.3s">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                        <span class="text-[10px] font-bold tracking-wider font-mono">NIGHT_OP</span>
                     </button>
                     
+                    <!-- Audio Toggle -->
+                    <button id="btn-audio" onclick="toggleAudio()" class="btn-glass p-4 rounded-xl flex flex-col items-center gap-3 opacity-0 animate-stagger-up" style="animation-delay: 0.4s">
+                        <svg id="icon-audio-off" class="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clip-rule="evenodd"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg>
+                        <svg id="icon-audio-on" class="w-7 h-7 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                        <span class="text-[10px] font-bold tracking-wider font-mono" id="text-audio">UNMUTE</span>
+                    </button>
+                </div>
+
+                <div class="mt-4 flex gap-3">
                     <!-- Switch Cam -->
-                    <button id="btn-switch" onclick="toggleCommand('cam')" class="btn-glass p-4 rounded-xl flex flex-col items-center gap-2">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                        <span class="text-xs font-bold">SWITCH CAM</span>
+                    <button id="btn-switch" onclick="toggleCommand('cam')" class="flex-1 btn-glass py-3 rounded-lg flex justify-center items-center gap-2 opacity-0 animate-stagger-up" style="animation-delay: 0.5s">
+                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <span class="text-[10px] font-bold tracking-wider font-mono">SWAP LENS</span>
                     </button>
                 </div>
                 
-                <div class="mt-auto flex flex-col gap-2">
-                    <button onclick="takeSnapshot()" class="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 border border-white/20">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                        SNAPSHOT
+                <div class="mt-auto flex flex-col gap-3 pt-6 border-t border-white/5 opacity-0 animate-stagger-up" style="animation-delay: 0.6s">
+                    <button onclick="takeSnapshot()" class="w-full bg-white/5 hover:bg-white/10 text-white py-3 rounded-xl transition-all flex items-center justify-center gap-3 border border-white/10 group">
+                        <svg class="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        <span class="text-xs font-bold tracking-widest font-mono">CAPTURE FRAME</span>
                     </button>
-                    <button id="btn-webrtc-connect" onclick="startViewerConnection()" class="w-full bg-blue-600/50 hover:bg-blue-600/80 text-white font-bold py-3 rounded-xl transition-all border border-blue-500/50">
-                        RECONNECT STREAM
+                    <button id="btn-webrtc-connect" onclick="startViewerConnection()" class="w-full bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 py-3 rounded-xl transition-all border border-blue-500/30 flex justify-center items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <span class="text-[10px] font-bold tracking-widest font-mono">FORCE RECONNECT</span>
                     </button>
                 </div>
             </aside>
@@ -267,31 +331,29 @@
         // ==========================================
         // CONFIGURATION
         // ==========================================
-        // IMPORTANT: Replace this URL with your deployed Google Apps Script Web App URL
         const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-MJuw_Mv9ClNNKmDHmvm66xGbzmiTDOjkNLf-u0YaQc08zir94elz2deDZ0PZthKrPg/exec"; 
         
-        // System Constants
-        const DEVICE_ID = "cctv_sys_1"; // Hardcoded for single setup, could be dynamic
-        const ICE_SERVERS = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+        const DEVICE_ID = "cctv_sys_1"; 
+        // Added fallback STUN servers for better NAT traversal
+        const ICE_SERVERS = { 
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ] 
+        };
         
-        // State Variables
         let currentRole = null;
-        let authHash = null;
         let localStream = null;
         let peerConnection = null;
         let signalingInterval = null;
         let statusInterval = null;
         let facingMode = 'environment';
         
-        // Audio Context for Siren
         let audioCtx = null;
         let sirenOscillator = null;
         let sirenInterval = null;
 
-        // Command State
         let commands = { siren: false, torch: false, night: false, cam: 'environment' };
-        
-        // DOM Elements
         const views = ['auth-view', 'role-view', 'camera-view', 'viewer-view'];
 
         // ==========================================
@@ -305,7 +367,6 @@
             });
             const targetEl = document.getElementById(viewId);
             targetEl.classList.remove('hidden');
-            // Trigger reflow to restart animation
             void targetEl.offsetWidth; 
             targetEl.classList.add('fade-in-view');
         }
@@ -319,8 +380,8 @@
                 error: 'bg-red-900/80 border-red-500 text-red-100',
                 warning: 'bg-yellow-900/80 border-yellow-500 text-yellow-100'
             };
-            toast.className = `toast border backdrop-blur-md shadow-lg ${colors[type]}`;
-            toast.innerHTML = `<span class="font-semibold text-sm">${message}</span>`;
+            toast.className = `toast border backdrop-blur-md shadow-lg ${colors[type]} font-mono text-xs tracking-wider`;
+            toast.innerHTML = `<span class="font-semibold">${message}</span>`;
             container.appendChild(toast);
             setTimeout(() => {
                 toast.style.opacity = '0';
@@ -328,27 +389,20 @@
             }, 3000);
         }
 
-        // Live timestamp
         setInterval(() => {
             const ts = document.getElementById('timestamp');
-            if(ts) ts.innerText = new Date().toLocaleTimeString();
+            if(ts) {
+                const d = new Date();
+                ts.innerText = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+            }
         }, 1000);
 
         // ==========================================
         // BACKEND API (GOOGLE SHEETS)
         // ==========================================
         async function apiCall(action, payload = {}) {
-            if (APPS_SCRIPT_URL === "YOUR_WEB_APP_URL") {
-                showToast("Apps Script URL not configured! Running in Mock Mode.", "warning");
-                return mockApiCall(action, payload);
-            }
-
             try {
-                // To avoid CORS preflight issues with Google Apps script, we use POST with text/plain 
-                // and parse JSON manually on backend, or we use simple URL params.
-                // For complex data, POST is necessary.
                 const url = `${APPS_SCRIPT_URL}?action=${action}&id=${DEVICE_ID}`;
-                
                 const response = await fetch(url, {
                     method: 'POST',
                     mode: 'cors',
@@ -365,18 +419,6 @@
             }
         }
 
-        // Fallback for demonstration if URL is not provided
-        let mockDb = { state: { commands: {}, status: {}, ice_viewer: [], ice_camera: [] } };
-        async function mockApiCall(action, payload) {
-            return new Promise(resolve => {
-                setTimeout(() => {
-                    if (action === 'auth') resolve({ valid: payload.pwd === '1234' });
-                    if (action === 'set_state') { mockDb.state = { ...mockDb.state, ...payload }; resolve(mockDb.state); }
-                    if (action === 'get_state') resolve(mockDb.state);
-                }, 200); // simulate network latency
-            });
-        }
-
         // ==========================================
         // AUTHENTICATION
         // ==========================================
@@ -384,46 +426,40 @@
             const pwd = document.getElementById('auth-password').value;
             if (!pwd) return;
 
-            // Simple client-side rate limiting
             const attempts = parseInt(localStorage.getItem('auth_attempts') || '0');
             const lockout = localStorage.getItem('auth_lockout');
             
             if (lockout && Date.now() < parseInt(lockout)) {
-                showToast("Too many attempts. Try again later.", "error");
+                showToast("SYSTEM LOCKED. RETRY LATER.", "error");
                 return;
             }
 
             try {
                 const btn = document.querySelector('#auth-view button');
+                const originalText = btn.innerText;
                 btn.innerHTML = `<svg class="animate-spin h-5 w-5 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
                 
-                // Simulate backend auth call
-                let isValid = false;
-                if (APPS_SCRIPT_URL !== "YOUR_WEB_APP_URL") {
-                    const res = await apiCall('auth', { pwd });
-                    isValid = res && res.valid;
-                } else {
-                    isValid = (pwd === 'admin123' || pwd === '1234'); // Mock pass
-                }
+                const res = await apiCall('auth', { pwd });
+                const isValid = res && res.valid;
 
                 if (isValid) {
                     localStorage.setItem('auth_attempts', '0');
                     localStorage.setItem('session', Date.now());
                     switchView('role-view');
-                    showToast("Access Granted", "success");
+                    showToast("ACCESS GRANTED", "success");
                 } else {
                     let newAttempts = attempts + 1;
                     localStorage.setItem('auth_attempts', newAttempts);
                     if (newAttempts >= 3) {
-                        localStorage.setItem('auth_lockout', Date.now() + 5 * 60 * 1000); // 5 mins
-                        showToast("System locked for 5 minutes.", "error");
+                        localStorage.setItem('auth_lockout', Date.now() + 5 * 60 * 1000); 
+                        showToast("SYSTEM LOCKED (5 MINS)", "error");
                     } else {
-                        showToast("Invalid Credentials", "error");
+                        showToast("INVALID CREDENTIALS", "error");
                     }
-                    btn.innerText = "AUTHENTICATE";
+                    btn.innerText = originalText;
                 }
             } catch (e) {
-                showToast("Connection failed", "error");
+                showToast("UPLINK FAILED", "error");
                 document.querySelector('#auth-view button').innerText = "AUTHENTICATE";
             }
         }
@@ -444,17 +480,17 @@
         async function initCameraMode() {
             currentRole = 'camera';
             switchView('camera-view');
-            document.getElementById('cam-status-text').innerText = 'INITIALIZING...';
+            document.getElementById('cam-status-text').innerText = 'INITIALIZING HARDWARE...';
             
             try {
                 await startVideo(facingMode);
                 setupCameraWebRTC();
                 startCameraStatusPolling();
                 setupHardwareMonitors();
-                showToast("Camera Active & Streaming", "success");
+                showToast("CAMERA ACTIVE", "success");
             } catch (err) {
-                showToast("Camera access denied or failed.", "error");
-                document.getElementById('cam-status-text').innerText = 'ERROR';
+                showToast("HARDWARE ERROR", "error");
+                document.getElementById('cam-status-text').innerText = 'LENS ERROR';
                 console.error(err);
             }
         }
@@ -471,7 +507,6 @@
             const video = document.getElementById('local-video');
             video.srcObject = localStream;
             
-            // Re-apply torch if needed
             if(commands.torch) setTorch(true);
         }
 
@@ -485,7 +520,6 @@
         }
 
         function setupHardwareMonitors() {
-            // Battery Monitor
             if (navigator.getBattery) {
                 navigator.getBattery().then(battery => {
                     const updateBattery = () => {
@@ -497,8 +531,6 @@
                     battery.addEventListener('levelchange', updateBattery);
                 });
             }
-
-            // Motion & Night Level Detection Loop
             setInterval(analyzeVideoFrame, 1000);
         }
 
@@ -511,13 +543,11 @@
             const canvas = document.getElementById('motion-canvas');
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
             
-            // Downscale heavily for performance
             canvas.width = 64; 
             canvas.height = 48;
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             const currentData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             
-            // 1. Check Brightness for Auto Night Mode (if enabled)
             if (commands.night === 'auto' || commands.night === true) {
                 let brightness = 0;
                 for (let i = 0; i < currentData.data.length; i += 4) {
@@ -534,7 +564,6 @@
                 }
             }
 
-            // 2. Motion Detection
             if (lastImageData) {
                 let diffCount = 0;
                 for (let i = 0; i < currentData.data.length; i += 4) {
@@ -544,7 +573,7 @@
                     if (rDiff + gDiff + bDiff > 60) diffCount++;
                 }
                 
-                const motionThreshold = (canvas.width * canvas.height) * 0.05; // 5% pixels changed
+                const motionThreshold = (canvas.width * canvas.height) * 0.05; 
                 if (diffCount > motionThreshold) {
                     triggerMotion();
                 }
@@ -555,7 +584,7 @@
         function triggerMotion() {
             const warning = document.getElementById('cam-motion-warning');
             warning.classList.remove('hidden');
-            apiCall('set_state', { status: { motion: true, last_motion: Date.now() } });
+            apiCall('set_state', { status: { motion: true } });
             
             clearTimeout(window.motionTimeout);
             window.motionTimeout = setTimeout(() => {
@@ -566,20 +595,8 @@
 
         function executeCommands(newCmds) {
             if(!newCmds) return;
-            
-            // Torch
-            if (newCmds.torch !== commands.torch) {
-                setTorch(newCmds.torch);
-                commands.torch = newCmds.torch;
-            }
-            
-            // Siren
-            if (newCmds.siren !== commands.siren) {
-                toggleSirenMode(newCmds.siren);
-                commands.siren = newCmds.siren;
-            }
-            
-            // Night Mode Force
+            if (newCmds.torch !== commands.torch) { setTorch(newCmds.torch); commands.torch = newCmds.torch; }
+            if (newCmds.siren !== commands.siren) { toggleSirenMode(newCmds.siren); commands.siren = newCmds.siren; }
             if (newCmds.night !== commands.night) {
                 const video = document.getElementById('local-video');
                 if(newCmds.night) {
@@ -591,26 +608,16 @@
                 }
                 commands.night = newCmds.night;
             }
-
-            // Switch Cam
-            if (newCmds.cam !== commands.cam) {
-                startVideo(newCmds.cam);
-                commands.cam = newCmds.cam;
-            }
+            if (newCmds.cam !== commands.cam) { startVideo(newCmds.cam); commands.cam = newCmds.cam; }
         }
 
         async function setTorch(on) {
             if (!localStream) return;
             const track = localStream.getVideoTracks()[0];
-            const imageCapture = new ImageCapture(track);
             try {
                 const capabilities = await track.getCapabilities();
-                if (capabilities.torch) {
-                    await track.applyConstraints({ advanced: [{ torch: on }] });
-                }
-            } catch (e) {
-                console.warn("Torch not supported on this device/browser.");
-            }
+                if (capabilities.torch) await track.applyConstraints({ advanced: [{ torch: on }] });
+            } catch (e) { console.warn("Torch API error", e); }
         }
 
         function toggleSirenMode(on) {
@@ -626,13 +633,12 @@
 
         function playSirenSound() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if(audioCtx.state === 'suspended') audioCtx.resume();
             sirenOscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
-            
             sirenOscillator.type = 'square';
             sirenOscillator.frequency.setValueAtTime(400, audioCtx.currentTime);
             
-            // Frequency modulation for wail effect
             let high = true;
             sirenInterval = setInterval(() => {
                 if(!sirenOscillator) return;
@@ -640,7 +646,7 @@
                 high = !high;
             }, 300);
 
-            gainNode.gain.value = 1.0; // Loud
+            gainNode.gain.value = 1.0; 
             sirenOscillator.connect(gainNode);
             gainNode.connect(audioCtx.destination);
             sirenOscillator.start();
@@ -661,13 +667,10 @@
         function setupCameraWebRTC() {
             peerConnection = new RTCPeerConnection(ICE_SERVERS);
             
-            localStream.getTracks().forEach(track => {
-                peerConnection.addTrack(track, localStream);
-            });
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
             peerConnection.onicecandidate = async (event) => {
                 if (event.candidate) {
-                    // Append candidate to backend
                     const state = await apiCall('get_state') || {};
                     const iceArr = state.ice_camera || [];
                     iceArr.push(event.candidate);
@@ -677,58 +680,55 @@
 
             peerConnection.onconnectionstatechange = () => {
                 const state = peerConnection.connectionState;
-                document.getElementById('cam-status-text').innerText = state === 'connected' ? 'LIVE STREAMING' : state.toUpperCase();
+                document.getElementById('cam-status-text').innerText = state === 'connected' ? 'UPLINK ACTIVE' : `STATE: ${state.toUpperCase()}`;
                 const dot = document.getElementById('cam-status-dot');
                 if(state === 'connected') {
                     dot.classList.replace('bg-red-500', 'bg-green-500');
+                    dot.classList.replace('shadow-[0_0_10px_rgba(255,0,0,0.8)]', 'shadow-[0_0_10px_rgba(0,255,0,0.8)]');
                 } else {
                     dot.classList.replace('bg-green-500', 'bg-red-500');
+                    dot.classList.replace('shadow-[0_0_10px_rgba(0,255,0,0.8)]', 'shadow-[0_0_10px_rgba(255,0,0,0.8)]');
                 }
             };
 
-            // Clear previous session data in DB
             apiCall('set_state', { offer: null, answer: null, ice_viewer: [], ice_camera: [], status: { online: true, battery: 100 } });
         }
 
         function startCameraStatusPolling() {
-            // Poll for viewer offer, ice candidates, and commands
             let handledOffer = false;
             let processedViewerIce = 0;
 
             statusInterval = setInterval(async () => {
                 if (currentRole !== 'camera') return;
-                
                 const state = await apiCall('get_state');
                 if (!state) return;
 
-                // 1. Execute Commands
                 if (state.commands) executeCommands(state.commands);
 
-                // 2. Handle WebRTC Offer
+                // Handle Offer explicitly
                 if (state.offer && !handledOffer && peerConnection) {
                     handledOffer = true;
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(state.offer));
-                    const answer = await peerConnection.createAnswer();
-                    await peerConnection.setLocalDescription(answer);
-                    await apiCall('set_state', { answer: answer });
+                    try {
+                        await peerConnection.setRemoteDescription(new RTCSessionDescription(state.offer));
+                        const answer = await peerConnection.createAnswer();
+                        await peerConnection.setLocalDescription(answer);
+                        await apiCall('set_state', { answer: answer });
+                    } catch(e) { console.error("Error setting remote desc:", e); }
                 }
 
-                // 3. Handle Viewer ICE Candidates
+                // Strictly add ICE only after RemoteDescription is set
                 if (state.ice_viewer && state.ice_viewer.length > processedViewerIce && peerConnection && peerConnection.remoteDescription) {
                     for (let i = processedViewerIce; i < state.ice_viewer.length; i++) {
-                        try {
-                            await peerConnection.addIceCandidate(new RTCIceCandidate(state.ice_viewer[i]));
-                        } catch(e) { console.warn("Error adding ICE", e); }
+                        try { await peerConnection.addIceCandidate(new RTCIceCandidate(state.ice_viewer[i])); } catch(e) { }
                     }
                     processedViewerIce = state.ice_viewer.length;
                 }
 
-                // Update online timestamp
-                apiCall('set_state', { status: { online: true, last_seen: Date.now() } });
+                // Heartbeat to let viewer know we are alive
+                apiCall('set_state', { status: { online: true } });
 
-            }, 2000); // 2 second polling interval
+            }, 2000); 
         }
-
 
         // ==========================================
         // VIEWER MONITOR MODE
@@ -738,19 +738,17 @@
             switchView('viewer-view');
             startViewerConnection();
             startViewerStatusPolling();
-            showToast("Initializing Viewer Dashboard", "info");
+            showToast("DASHBOARD INITIALIZED", "info");
         }
 
         async function startViewerConnection() {
             const loader = document.getElementById('video-loader');
-            loader.classList.remove('hidden');
-            document.getElementById('connection-status').innerText = 'GENERATING P2P OFFER...';
+            loader.classList.remove('hidden', 'opacity-0');
+            document.getElementById('connection-status').innerText = 'GENERATING P2P KEYS...';
 
             if (peerConnection) peerConnection.close();
-            
             peerConnection = new RTCPeerConnection(ICE_SERVERS);
             
-            // To receive video, we need to add a transceiver
             peerConnection.addTransceiver('video', { direction: 'recvonly' });
             peerConnection.addTransceiver('audio', { direction: 'recvonly' });
 
@@ -758,8 +756,8 @@
                 const remoteVideo = document.getElementById('remote-video');
                 if (remoteVideo.srcObject !== event.streams[0]) {
                     remoteVideo.srcObject = event.streams[0];
-                    loader.classList.add('hidden');
-                    updateViewerStatus(true);
+                    // Unmute requirement bypassed by <video muted> attribute
+                    remoteVideo.play().catch(e => console.warn("Playback prevented:", e));
                 }
             };
 
@@ -773,22 +771,25 @@
             };
 
             peerConnection.onconnectionstatechange = () => {
-                if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
-                    loader.classList.remove('hidden');
-                    document.getElementById('connection-status').innerText = 'CONNECTION LOST. RETRYING...';
+                const state = peerConnection.connectionState;
+                if (state === 'connected') {
+                    // Aggressively hide loader when connection is established
+                    loader.classList.add('opacity-0');
+                    setTimeout(() => loader.classList.add('hidden'), 500);
+                    updateViewerStatus(true);
+                } else if (state === 'disconnected' || state === 'failed') {
+                    loader.classList.remove('hidden', 'opacity-0');
+                    document.getElementById('connection-status').innerText = 'LINK LOST. RETRYING...';
                     updateViewerStatus(false);
                 }
             };
 
-            // Create Offer
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
             
-            // Clear old DB connection state, set new offer
-            document.getElementById('connection-status').innerText = 'SENDING SIGNAL TO CAMERA...';
+            document.getElementById('connection-status').innerText = 'TRANSMITTING SIGNAL...';
             await apiCall('set_state', { offer: offer, answer: null, ice_viewer: [], ice_camera: [] });
             
-            // Start listening for answer
             listenForAnswer();
         }
 
@@ -797,30 +798,32 @@
             let answerReceived = false;
             
             const checkAnswer = async () => {
-                if (currentRole !== 'viewer' || answerReceived) return;
+                if (currentRole !== 'viewer') return;
                 
                 const state = await apiCall('get_state');
-                if (state && state.answer && peerConnection.signalingState !== 'stable') {
+                
+                // Set remote description once
+                if (state && state.answer && peerConnection.signalingState !== 'stable' && !answerReceived) {
                     answerReceived = true;
-                    document.getElementById('connection-status').innerText = 'ESTABLISHING P2P CONNECTION...';
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(state.answer));
+                    document.getElementById('connection-status').innerText = 'NEGOTIATING STREAMS...';
+                    try {
+                        await peerConnection.setRemoteDescription(new RTCSessionDescription(state.answer));
+                    } catch(e) { console.error(e); }
                 }
 
-                // Add camera ICE
+                // Add ICE candidates strictly after remote desc
                 if (state && state.ice_camera && state.ice_camera.length > processedCameraIce && peerConnection.remoteDescription) {
                     for (let i = processedCameraIce; i < state.ice_camera.length; i++) {
-                        try {
-                            await peerConnection.addIceCandidate(new RTCIceCandidate(state.ice_camera[i]));
-                        } catch(e) {}
+                        try { await peerConnection.addIceCandidate(new RTCIceCandidate(state.ice_camera[i])); } catch(e) {}
                     }
                     processedCameraIce = state.ice_camera.length;
                 }
 
-                if (!answerReceived || (state.ice_camera && state.ice_camera.length > processedCameraIce)) {
+                // Continue polling if disconnected or needing ICE
+                if (peerConnection.connectionState !== 'connected') {
                     setTimeout(checkAnswer, 2000);
                 }
             };
-            
             setTimeout(checkAnswer, 2000);
         }
 
@@ -830,33 +833,32 @@
                 const state = await apiCall('get_state');
                 if (!state || !state.status) return;
 
-                // Check Online Status (if last seen > 10s ago, consider offline)
-                const isOnline = state.status.online && (Date.now() - (state.status.last_seen || 0) < 10000);
-                updateViewerStatus(isOnline);
+                // Removed buggy clock drift check. Relying directly on WebRTC state + DB flag
+                if(peerConnection && peerConnection.connectionState === 'connected') {
+                    updateViewerStatus(true);
+                } else if (state.status.online === false) {
+                    updateViewerStatus(false);
+                }
 
-                // Update Battery
                 if (state.status.battery) {
                     const bat = document.getElementById('view-battery');
                     bat.innerText = `${state.status.battery}%`;
-                    bat.className = `font-mono text-sm ${state.status.battery < 20 ? 'text-red-500 animate-pulse' : 'text-green-400'}`;
+                    bat.className = `font-mono text-sm font-bold ${state.status.battery < 20 ? 'text-red-500 animate-pulse' : 'text-green-400'}`;
                 }
 
-                // Update Motion Alert
                 const alertEl = document.getElementById('view-motion-alert');
                 if (state.status.motion) {
                     alertEl.classList.remove('hidden');
-                    // Play a subtle beep
                     if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                     if(audioCtx.state === 'running') {
                         const osc = audioCtx.createOscillator();
                         osc.connect(audioCtx.destination);
-                        osc.frequency.value = 800;
+                        osc.frequency.value = 900;
                         osc.start(); osc.stop(audioCtx.currentTime + 0.1);
                     }
                 } else {
                     alertEl.classList.add('hidden');
                 }
-
             }, 2000);
         }
 
@@ -865,14 +867,40 @@
             const text = document.getElementById('view-status-text');
             if (isOnline) {
                 dot.classList.replace('bg-red-500', 'bg-green-500');
+                dot.classList.replace('shadow-[0_0_8px_rgba(255,0,0,0.8)]', 'shadow-[0_0_8px_rgba(0,255,0,0.8)]');
                 dot.classList.add('animate-pulse');
-                text.innerText = 'Connected';
+                text.innerText = 'LINK ACTIVE';
                 text.classList.replace('text-gray-400', 'text-green-400');
             } else {
                 dot.classList.replace('bg-green-500', 'bg-red-500');
+                dot.classList.replace('shadow-[0_0_8px_rgba(0,255,0,0.8)]', 'shadow-[0_0_8px_rgba(255,0,0,0.8)]');
                 dot.classList.remove('animate-pulse');
-                text.innerText = 'Camera Offline';
+                text.innerText = 'OFFLINE';
                 text.classList.replace('text-green-400', 'text-gray-400');
+            }
+        }
+
+        function toggleAudio() {
+            const video = document.getElementById('remote-video');
+            const btn = document.getElementById('btn-audio');
+            const iconOff = document.getElementById('icon-audio-off');
+            const iconOn = document.getElementById('icon-audio-on');
+            const text = document.getElementById('text-audio');
+
+            video.muted = !video.muted;
+            
+            if (!video.muted) {
+                btn.classList.add('btn-active-green');
+                iconOff.classList.add('hidden');
+                iconOn.classList.remove('hidden', 'text-gray-400');
+                iconOn.classList.add('text-neonGreen');
+                text.innerText = "MUTED";
+                showToast("AUDIO LINK ESTABLISHED", "info");
+            } else {
+                btn.classList.remove('btn-active-green');
+                iconOn.classList.add('hidden');
+                iconOff.classList.remove('hidden');
+                text.innerText = "UNMUTE";
             }
         }
 
@@ -891,7 +919,6 @@
                 newValue = !commands[type];
                 commands[type] = newValue;
                 
-                // UI Toggle
                 if (newValue) {
                     btn.classList.add(type === 'siren' ? 'btn-active-red' : 'btn-active-blue');
                     if(type === 'night') document.getElementById('remote-video').classList.add('night-vision');
@@ -901,16 +928,15 @@
                 }
             }
 
-            // Send to DB
             const cmdPayload = { commands: { ...commands } };
             await apiCall('set_state', cmdPayload);
-            showToast(`Command sent: ${type.toUpperCase()}`, "info");
+            showToast(`CMD SENT: ${type.toUpperCase()}`, "info");
         }
 
         function takeSnapshot() {
             const video = document.getElementById('remote-video');
             if (!video.videoWidth) {
-                showToast("No active stream to capture", "error");
+                showToast("NO SIGNAL DETECTED", "error");
                 return;
             }
 
@@ -919,7 +945,6 @@
             canvas.height = video.videoHeight;
             const ctx = canvas.getContext('2d');
             
-            // Apply night vision filter to canvas if active
             if(commands.night) {
                 ctx.filter = 'brightness(1.5) contrast(1.2) sepia(0.3) hue-rotate(130deg) saturate(1.5)';
             }
@@ -928,25 +953,22 @@
             const dataUrl = canvas.toDataURL('image/jpeg');
             const a = document.createElement('a');
             a.href = dataUrl;
-            a.download = `CCTV_Snap_${new Date().getTime()}.jpg`;
+            a.download = `CCTV_FRAME_${new Date().getTime()}.jpg`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             
-            showToast("Snapshot Saved", "success");
+            showToast("FRAME CAPTURED", "success");
             
-            // Flash effect on screen
             const flash = document.createElement('div');
-            flash.className = 'fixed inset-0 bg-white z-50 transition-opacity duration-500 opacity-100 pointer-events-none';
+            flash.className = 'fixed inset-0 bg-white z-[100] transition-opacity duration-300 opacity-100 pointer-events-none';
             document.body.appendChild(flash);
             setTimeout(() => flash.classList.replace('opacity-100', 'opacity-0'), 50);
-            setTimeout(() => flash.remove(), 550);
+            setTimeout(() => flash.remove(), 350);
         }
 
-        // Initialize App
         window.onload = () => {
             const session = localStorage.getItem('session');
-            // Auto login if session is less than 30 mins old
             if (session && (Date.now() - parseInt(session) < 30 * 60 * 1000)) {
                 switchView('role-view');
             }
